@@ -2576,7 +2576,7 @@ async function injectedFiller(title, body, items) {
         }
         const startRowIndex = existingFilledCount;
 
-        const liveBanner = createOrUpdateBanner(targetDoc, '🚀 [에듀파인 품의 도우미 v2.4.9] 품목 표 자동 행추가 및 셀 타이핑을 시작합니다...');
+        const liveBanner = createOrUpdateBanner(targetDoc, '🚀 [에듀파인 품의 도우미 v2.5.0] 품목 표 자동 행추가 및 셀 타이핑을 시작합니다...');
 
         for (let i = 0; i < items.length; i++) {
           const curItem = items[i];
@@ -3519,7 +3519,7 @@ async function executeInjection({
       return;
     }
 
-    const currentVer = chrome.runtime.getManifest()?.version || "2.4.9";
+    const currentVer = chrome.runtime.getManifest()?.version || "2.5.0";
     let msg = `[에듀파인 화면 입력 완료! (v${currentVer})]\n\n`;
 
     if (injectDraft) {
@@ -3643,3 +3643,95 @@ btnCopyDraft.addEventListener("click", () => {
     alert("📋 기안문 제목과 본문이 클립보드에 복사되었습니다!");
   });
 });
+
+// ==========================================================================
+// 깃허브 최신 릴리즈 자동 감지 및 원클릭 업데이트 알림
+// ==========================================================================
+async function checkForAppUpdates() {
+  const updateBanner = document.getElementById("updateBanner");
+  const updateVerBadge = document.getElementById("updateVerBadge");
+  const btnOpenUpdateGuide = document.getElementById("btnOpenUpdateGuide");
+  const btnCloseUpdateBanner = document.getElementById("btnCloseUpdateBanner");
+
+  if (!updateBanner) return;
+
+  if (btnCloseUpdateBanner) {
+    btnCloseUpdateBanner.addEventListener("click", () => {
+      updateBanner.style.display = "none";
+      chrome.storage.local.set({ lastDismissedUpdateVer: updateVerBadge?.textContent?.trim() || "" });
+    });
+  }
+
+  if (btnOpenUpdateGuide) {
+    btnOpenUpdateGuide.addEventListener("click", () => {
+      const ver = updateVerBadge?.textContent?.trim() || "최신";
+      alert(
+        `🚀 [에듀파인 품의 도우미 ${ver} 원클릭 업데이트 방법]\n\n` +
+        `1. 다운로드받으셨던 [edufine-draft-assistant] 폴더를 엽니다.\n` +
+        `2. 폴더 안에 있는 [업데이트.bat] 파일을 더블클릭합니다.\n` +
+        `3. 검은 창에서 다운로드 및 파일 교체가 자동으로 진행됩니다.\n` +
+        `4. 완료 후 브라우저 확장 관리창(chrome://extensions)에서 [새로고침(🔄)]만 누르시면 최신 버전으로 즉시 반영됩니다!\n\n` +
+        `💡 [확인]을 누르시면 깃허브 최신 릴리즈 페이지로 이동합니다.`
+      );
+      if (chrome.tabs && chrome.tabs.create) {
+        chrome.tabs.create({ url: "https://github.com/yerang-k/edufine-draft-assistant/releases/latest" });
+      }
+    });
+  }
+
+  try {
+    const curVer = chrome.runtime.getManifest()?.version || "2.5.0";
+    const { lastUpdateCheckTime, latestRemoteVer, lastDismissedUpdateVer } = await chrome.storage.local.get([
+      "lastUpdateCheckTime", "latestRemoteVer", "lastDismissedUpdateVer"
+    ]);
+
+    let remoteTag = latestRemoteVer;
+    const now = Date.now();
+
+    // 20분마다 주기적으로 깃허브 API 확인
+    if (!remoteTag || !lastUpdateCheckTime || (now - lastUpdateCheckTime > 20 * 60 * 1000)) {
+      try {
+        const res = await fetch("https://api.github.com/repos/yerang-k/edufine-draft-assistant/releases/latest", {
+          headers: { "Accept": "application/vnd.github.v3+json" }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          remoteTag = data.tag_name || "";
+          await chrome.storage.local.set({
+            latestRemoteVer: remoteTag,
+            lastUpdateCheckTime: now
+          });
+        }
+      } catch(fetchErr) {
+        // 오프라인이거나 네트워크 오류 시 무시
+      }
+    }
+
+    if (remoteTag) {
+      const cleanRemote = remoteTag.replace(/^v/i, "").trim();
+      const cleanCur = curVer.replace(/^v/i, "").trim();
+      if (compareVersions(cleanRemote, cleanCur) > 0 && lastDismissedUpdateVer !== remoteTag) {
+        if (updateVerBadge) updateVerBadge.textContent = remoteTag;
+        updateBanner.style.display = "flex";
+      }
+    }
+  } catch(e) {
+    console.log("[업데이트 체크 건너뜀]:", e);
+  }
+}
+
+function compareVersions(vA, vB) {
+  const partsA = vA.split(".").map(n => parseInt(n, 10) || 0);
+  const partsB = vB.split(".").map(n => parseInt(n, 10) || 0);
+  const len = Math.max(partsA.length, partsB.length);
+  for (let i = 0; i < len; i++) {
+    const a = partsA[i] || 0;
+    const b = partsB[i] || 0;
+    if (a > b) return 1;
+    if (a < b) return -1;
+  }
+  return 0;
+}
+
+// 초기 로드 시 업데이트 확인 실행
+checkForAppUpdates();

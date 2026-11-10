@@ -16,13 +16,29 @@
         <img src="icon48.png" alt="앱 아이콘" />
       </div>
       <h1 class="brand-title">에듀파인 품의 도우미</h1>
-      <span id="appVersionBadge" class="badge-version">v2.4.9</span>
+      <span id="appVersionBadge" class="badge-version">v2.5.0</span>
     </div>
     <button id="btnSettings" class="btn-icon" title="API 키 및 관련근거 설정">
       <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
       <span>설정</span>
     </button>
   </header>
+
+  <!-- 신버전 업데이트 알림 배너 (새 버전 감지 시에만 표시) -->
+  <div id="updateBanner" style="display:none; background:#fff8e1; border:1px solid #ffe082; border-radius:var(--radius); padding:8px 10px; margin-bottom:10px; font-size:11.5px; color:#5d4037; align-items:center; justify-content:space-between; gap:6px;">
+    <div style="display:flex; align-items:center; gap:5px; flex:1; min-width:0;">
+      <span style="font-size:14px; flex-shrink:0;">📢</span>
+      <span style="font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+        새 버전(<span id="updateVerBadge" style="color:var(--accent);">v2.5.0</span>) 출시!
+      </span>
+    </div>
+    <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+      <button id="btnOpenUpdateGuide" type="button" class="btn-primary" style="padding:3px 7px; font-size:10.5px; font-weight:700; background:var(--accent); border-radius:4px;">
+        업데이트 방법
+      </button>
+      <button id="btnCloseUpdateBanner" type="button" title="닫기" style="background:none; border:none; color:#8d6e63; cursor:pointer; font-size:13px; padding:0 3px; line-height:1;">✕</button>
+    </div>
+  </div>
 
   <!-- 최상단 품의 모드 탭: 단일 예산 vs 다중 예산 분할 -->
   <div class="main-workflow-tabs">
@@ -392,7 +408,7 @@
           <svg class="svg-icon icon-sm" style="color:var(--accent);" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
           <h3 style="margin:0; font-size:14px; font-weight:700; color:var(--text);">Gemini API 설정</h3>
         </div>
-        <span class="badge-version" id="settingsVersion">v2.4.9</span>
+        <span class="badge-version" id="settingsVersion">v2.5.0</span>
       </div>
       <p style="font-size:11.5px; color:var(--text-3); margin-bottom:10px;">
         Google AI Studio에서 무료로 발급받은 Gemini API Key를 입력해주세요.
