@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>에듀파인 품의 도우미</title>
+  <!-- Pretendard Variable 웹폰트 -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- 상단 헤더 -->
+  <header class="header">
+    <div class="brand-wrap">
+      <div class="brand-icon-box">
+        <img src="icon48.png" alt="앱 아이콘" />
+      </div>
+      <h1 class="brand-title">에듀파인 품의 도우미</h1>
+      <span id="appVersionBadge" class="badge-version">v2.4.9</span>
+    </div>
+    <button id="btnSettings" class="btn-icon" title="API 키 및 관련근거 설정">
+      <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+      <span>설정</span>
+    </button>
+  </header>
+
+  <!-- 최상단 품의 모드 탭: 단일 예산 vs 다중 예산 분할 -->
+  <div class="main-workflow-tabs">
+    <button id="mainTabBtnSingle" class="main-tab-btn active">
+      <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+      <span>단일 예산 품의 (원클릭)</span>
+    </button>
+    <button id="mainTabBtnMulti" class="main-tab-btn">
+      <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+      <span>다중 예산 분할 품의</span>
+    </button>
+  </div>
+
+  <!-- ========================================================================== -->
+  <!-- 1. 단일 예산 품의 섹션 (기존 원클릭 흐름)                                     -->
+  <!-- ========================================================================== -->
+  <div id="sectionSingleWorkflow">
+    <!-- 입력 모드 선택 탭 (세그먼트 스타일) -->
+    <div class="mode-tabs">
+      <button id="modeBtnImage" class="mode-tab-btn active">
+        <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+        <span>캡처 이미지</span>
+        <span class="tab-badge" id="imgBadgeCount">0</span>
+      </button>
+      <button id="modeBtnText" class="mode-tab-btn">
+        <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+        <span>텍스트 복사 (초고속)</span>
+      </button>
+    </div>
+
+    <!-- 1. 이미지 모드 카드 -->
+    <div id="imageModeCard" class="card">
+      <input type="file" id="filePickerInput" accept="image/*" multiple style="display:none;" />
+      <div id="dropzone" class="dropzone" tabindex="0">
+        <div class="icon-wrap">
+          <svg class="svg-icon icon-lg" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+        </div>
+        <div class="text-main">클릭하여 <strong>파일 선택</strong> 또는 <strong>Ctrl + V</strong> 붙여넣기</div>
+        <div class="text-sub">상품 캡처를 붙여넣으세요 (여러 장 동시 추가 가능)</div>
+      </div>
+      
+      <!-- 다중 이미지 썸네일 목록 -->
+      <div id="imageGallery" class="image-gallery" style="display:none;">
+        <div class="gallery-header">
+          <span>첨부된 캡처 (<strong id="galleryCount">0</strong>개)</span>
+          <button id="btnClearAllImgs" class="btn-link">전체 삭제</button>
+        </div>
+        <div id="galleryGrid" class="gallery-grid"></div>
+      </div>
+    </div>
+
+    <!-- 2. 텍스트 모드 카드 -->
+    <div id="textModeCard" class="card" style="display:none;">
+      <div class="form-group" style="margin-bottom:0;">
+        <label for="textInputArea">
+          <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          <span>쇼핑몰 장바구니/주문 내역 텍스트 붙여넣기</span>
+        </label>
+        <textarea id="textInputArea" class="form-control" rows="5" placeholder="쇼핑몰 장바구니나 상품페이지의 글자를 드래그 복사(Ctrl+C)하여 여기에 Ctrl+V 붙여넣으세요. 이미지보다 5배 빠르게 1초 만에 분석됩니다!"></textarea>
+      </div>
+    </div>
+
+    <!-- 추가 옵션 카드 -->
+    <div class="card">
+      <div class="form-group">
+        <label for="usageSelect">
+          <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+          <span>물품 용도</span>
+        </label>
+        <select id="usageSelect" class="form-control">
+          <option value="교육활동">교육활동용</option>
+          <option value="학급운영">학급운영용</option>
+          <option value="환경구성">환경구성용</option>
+          <option value="실습재료">수업 실습재료용</option>
+          <option value="행사준비">교내 행사준비용</option>
+          <option value="custom">직접 입력...</option>
+        </select>
+        <input type="text" id="customUsage" class="form-control" placeholder="용도 직접 입력 (예: 과학탐구대회)" style="display:none; margin-top:6px;" />
+      </div>
+
+      <div class="form-group">
+        <label for="refSelect">
+          <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+          <span>관련 근거 (선택사항)</span>
+        </label>
+        <select id="refSelect" class="form-control">
+          <option value="">(선택 안 함 / 없음)</option>
+          <option value="custom">직접 입력...</option>
+        </select>
+        <input type="text" id="customRef" class="form-control" placeholder="관련 근거 직접 입력 (예: 2026학년도 학년운영계획)" style="display:none; margin-top:6px;" />
+      </div>
+
+      <div style="display:flex; gap:8px;">
+        <button id="btnAnalyze" class="btn-primary" disabled style="flex:1;">
+          <svg class="svg-icon" viewBox="0 0 24 24"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"></path></svg>
+          <span id="btnAnalyzeText">AI 상품 분석 및 기안문 작성</span>
+        </button>
+        <button id="btnAppendAnalyze" class="btn-secondary" disabled style="display:none; padding:10px 14px; font-weight:700; color:var(--accent); border-color:var(--accent-border);" title="기존 기안문과 품목 목록을 유지한 채 새 품목을 뒤에 이어붙입니다">
+          <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <span>품목 추가 분석</span>
+        </button>
+      </div>
+      <div id="statusMsg" class="status-msg"></div>
+    </div>
+
+    <!-- 분석 결과 카드 -->
+    <div id="resultCard" class="card" style="display:none;">
+      <!-- 구매 수량 빠른 조절 바 -->
+      <div id="quickQtyBox">
+        <div class="quick-qty-header">
+          <span class="quick-qty-title">
+            <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="8" y1="12" x2="16" y2="12"></line><line x1="12" y1="8" x2="12" y2="16"></line></svg>
+            <span>구매 수량 빠른 조절</span>
+          </span>
+          <span id="quickTotalBadge" class="quick-total-badge">총 0원</span>
+        </div>
+        <div id="quickQtyList" style="display:flex; flex-direction:column; gap:6px;"></div>
+      </div>
+
+      <div class="tabs">
+        <button id="tabBtnDraft" class="tab-btn active">
+          <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+          <span>기안문 미리보기</span>
+        </button>
+        <button id="tabBtnItems" class="tab-btn">
+          <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+          <span>품목 내역 상세 (<span id="itemCount">0</span>건)</span>
+        </button>
+      </div>
+
+      <!-- 기안문 탭 -->
+      <div id="tabContentDraft" class="tab-content active">
+        <div class="form-group">
+          <label for="draftTitle">품의 제목</label>
+          <input type="text" id="draftTitle" class="form-control" />
+        </div>
+        <div class="form-group">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <label for="draftBody" style="margin-bottom:0;">본문 내용</label>
+            <button id="btnRegenDraftText" type="button" style="font-size:11px; color:var(--accent); background:transparent; border:none; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:3px;">
+              <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+              <span>본문 금액/내역 새로고침</span>
+            </button>
+          </div>
+          <textarea id="draftBody" class="form-control" rows="12" style="font-family:monospace; line-height:1.45;"></textarea>
+        </div>
+      </div>
+
+      <!-- 품목 내역 탭 -->
+      <div id="tabContentItems" class="tab-content">
+        <div class="table-responsive">
+          <table id="itemsTable">
+            <thead>
+              <tr>
+                <th style="width:32px;">순번</th>
+                <th>내용(품목명)</th>
+                <th>규격</th>
+                <th>수량</th>
+                <th>단위</th>
+                <th>단가</th>
+                <th>금액</th>
+              </tr>
+            </thead>
+            <tbody id="itemsTableBody"></tbody>
+          </table>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+          <button id="btnManualAddRow" class="btn-secondary" style="padding:4px 10px; font-size:11px;">
+            <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            <span>품목 1행 직접 추가</span>
+          </button>
+          <div style="text-align:right; font-weight:700; font-size:12px; color:var(--text-2);">
+            총 소요예산: <span id="totalAmountText" style="color:var(--accent); font-size:13px; font-weight:800;">0원</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 액션 버튼 (단일 예산 원클릭) -->
+      <div class="actions-bar">
+        <button id="btnInjectEdufine" class="btn-success">
+          <svg class="svg-icon" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          <span>에듀파인 화면에 즉시 입력 (기안문 + 품목)</span>
+        </button>
+        <button id="btnCopyGridData" class="btn-secondary" style="border-color:var(--accent-border); color:var(--accent); font-weight:700;">
+          <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
+          <span>품목 데이터 복사 (에듀파인 표에 Ctrl+V)</span>
+        </button>
+        <button id="btnDownloadExcel" class="btn-secondary">
+          <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+          <span>에듀파인 품목 엑셀(.xlsx) 다운로드</span>
+        </button>
+        <button id="btnCopyDraft" class="btn-secondary">
+          <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          <span>기안문 텍스트 복사</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================== -->
+  <!-- 2. 다중 예산 분할 품의 섹션 (순차 단계별 흐름)                                 -->
+  <!-- ========================================================================== -->
+  <div id="sectionMultiWorkflow" style="display:none;">
+    <!-- 단계 안내 및 현재 작업 예산 선택 카드 -->
+    <div class="multi-guide-card">
+      <div class="multi-guide-header">
+        <span id="multiCurrentBudgetBadge" class="multi-budget-badge">1번 예산 진행 중</span>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span style="font-size:11px; font-weight:700; color:var(--text-2);">예산 직접 선택:</span>
+          <select id="multiBudgetSelect" style="padding:4px 8px; font-size:11.5px; font-weight:700; border:1px solid var(--accent); border-radius:var(--radius-sm); background:var(--card); color:var(--accent); cursor:pointer;">
+            <option value="1">1번 예산</option>
+            <option value="2">2번 예산</option>
+            <option value="3">3번 예산</option>
+            <option value="4">4번 예산</option>
+          </select>
+        </div>
+      </div>
+      <div class="multi-step-desc">
+        👉 <strong>먼저 에듀파인 화면</strong>의 [예산내역] 표에서 <span id="multiNoticeBudgetNum" style="color:#d93025; font-weight:800; font-size:12.5px;">1번 예산</span> 행을 마우스로 클릭하여 선택해 주세요!
+      </div>
+    </div>
+
+    <!-- 현재 예산의 상품 캡처 이미지 등록 & AI 분석 카드 -->
+    <div class="card">
+      <div style="font-size:12px; font-weight:700; color:var(--text); margin-bottom:8px; display:flex; align-items:center; gap:5px;">
+        <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+        <span id="multiInputCardTitle">1번 예산으로 구매할 물품 캡처 첨부</span>
+      </div>
+
+      <input type="file" id="multiFilePickerInput" accept="image/*" multiple style="display:none;" />
+      <div id="multiDropzone" class="dropzone" tabindex="0">
+        <div class="icon-wrap">
+          <svg class="svg-icon icon-lg" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+        </div>
+        <div class="text-main">클릭하여 <strong>파일 선택</strong> 또는 <strong>Ctrl + V</strong> 붙여넣기</div>
+        <div class="text-sub">해당 예산의 장바구니 캡처 이미지를 넣으세요</div>
+      </div>
+      
+      <!-- 현재 예산 캡처 썸네일 갤러리 -->
+      <div id="multiImageGallery" class="image-gallery" style="display:none;">
+        <div class="gallery-header">
+          <span>첨부된 캡처 (<strong id="multiGalleryCount">0</strong>개)</span>
+          <button id="btnClearMultiImgs" class="btn-link">전체 삭제</button>
+        </div>
+        <div id="multiGalleryGrid" class="gallery-grid"></div>
+      </div>
+
+      <div style="margin-top:10px;">
+        <button id="btnMultiAnalyze" class="btn-primary" disabled>
+          <svg class="svg-icon" viewBox="0 0 24 24"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"></path></svg>
+          <span id="btnMultiAnalyzeText">1번 예산 품목 AI 분석</span>
+        </button>
+      </div>
+      <div id="multiStatusMsg" class="status-msg"></div>
+    </div>
+
+    <!-- 현재 예산 분석된 품목 미리보기 및 표 즉시 입력 카드 -->
+    <div id="multiItemsCard" class="card" style="display:none;">
+      <!-- 구매 수량 빠른 조절 박스 (단일 예산과 100% 동일한 비주얼 디자인) -->
+      <div id="multiQuickQtyBox" style="background:var(--accent-soft); border:1px solid var(--accent-border); border-radius:var(--radius); padding:10px 12px; margin-bottom:12px;">
+        <div class="quick-qty-header">
+          <span class="quick-qty-title">
+            <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="8" y1="12" x2="16" y2="12"></line><line x1="12" y1="8" x2="12" y2="16"></line></svg>
+            <span><strong id="multiCurrentBudgetLabel">1번 예산</strong> 구매 수량 빠른 조절 (<span id="multiCurrentItemCount">0</span>건)</span>
+          </span>
+          <span id="multiCurrentTotal" class="quick-total-badge">총 0원</span>
+        </div>
+        <!-- 수량 및 내역 조절 리스트 -->
+        <div id="multiCurrentQtyList" style="display:flex; flex-direction:column; gap:6px;"></div>
+      </div>
+
+      <!-- 동작 버튼 2개: 1) 에듀파인 표에 품목 즉시 입력, 2) 다음 예산으로 넘어가기 -->
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <button id="btnMultiInjectItems" class="btn-primary" style="padding:11px 12px; font-size:12.5px; font-weight:800;">
+          <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          <span id="btnMultiInjectItemsText">에듀파인 표에 1번 예산 품목 즉시 입력</span>
+        </button>
+
+        <button id="btnMultiNextBudget" class="btn-secondary" style="border-color:var(--accent-border); color:var(--accent); font-weight:800; padding:10px 12px; font-size:12px;">
+          <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <span id="btnMultiNextBudgetText">➕ 다음 예산(2번 예산) 품목 입력으로 넘어가기</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 전체 누적 품목 현황 요약 박스 -->
+    <div id="multiCumulativeBox" class="multi-summary-box">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <span style="font-weight:700; color:var(--text); font-size:12px; display:flex; align-items:center; gap:5px;">
+          <svg class="svg-icon icon-sm" style="color:var(--accent);" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+          <span>현재까지 등록된 예산별 품목 현황</span>
+        </span>
+        <button id="btnMultiResetAll" class="btn-link" style="font-size:11px; color:var(--danger);">전체 초기화</button>
+      </div>
+      <div id="multiSummaryList" style="display:flex; flex-direction:column; gap:4px; margin-bottom:6px;">
+        <div style="font-size:11.5px; color:var(--text-3); text-align:center; padding:6px 0;">아직 등록된 품목이 없습니다.</div>
+      </div>
+      <div class="multi-summary-row multi-summary-total">
+        <span>총 누적 합계</span>
+        <span id="multiGrandSummaryText">0건 / 0원</span>
+      </div>
+    </div>
+
+    <!-- 전체 품목 종합 기안문 작성 및 최종 본문 즉시 입력 카드 -->
+    <div id="multiDraftCard" class="card">
+      <div style="font-size:12px; font-weight:700; color:var(--text); margin-bottom:10px; display:flex; align-items:center; gap:5px;">
+        <svg class="svg-icon icon-sm" style="color:var(--accent);" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+        <span>전체 품목 종합 기안문(본문) 작성</span>
+      </div>
+
+      <div class="form-group">
+        <label for="multiUsageSelect">물품 용도</label>
+        <select id="multiUsageSelect" class="form-control">
+          <option value="교육활동">교육활동용</option>
+          <option value="학급운영">학급운영용</option>
+          <option value="환경구성">환경구성용</option>
+          <option value="실습재료">수업 실습재료용</option>
+          <option value="행사준비">교내 행사준비용</option>
+          <option value="custom">직접 입력...</option>
+        </select>
+        <input type="text" id="multiCustomUsage" class="form-control" placeholder="용도 직접 입력" style="display:none; margin-top:6px;" />
+      </div>
+
+      <div class="form-group">
+        <label for="multiRefSelect">관련 근거 (선택사항)</label>
+        <select id="multiRefSelect" class="form-control">
+          <option value="">(선택 안 함 / 없음)</option>
+          <option value="custom">직접 입력...</option>
+        </select>
+        <input type="text" id="multiCustomRef" class="form-control" placeholder="관련 근거 직접 입력" style="display:none; margin-top:6px;" />
+      </div>
+
+      <button id="btnMultiGenDraft" class="btn-secondary" style="width:100%; font-weight:700; color:var(--accent); border-color:var(--accent-border); padding:9px; margin-bottom:12px;">
+        <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+        <span>전체 품목 종합 기안문 자동 생성 / 새로고침</span>
+      </button>
+
+      <div class="form-group">
+        <label for="multiDraftTitle">최종 품의 제목</label>
+        <input type="text" id="multiDraftTitle" class="form-control" />
+      </div>
+
+      <div class="form-group">
+        <label for="multiDraftBody">최종 본문 내용 (기안문)</label>
+        <textarea id="multiDraftBody" class="form-control" rows="12" style="font-family:monospace; line-height:1.45;"></textarea>
+      </div>
+
+      <div class="actions-bar">
+        <button id="btnMultiInjectDraft" class="btn-success" style="font-weight:800; font-size:13px; padding:12px;">
+          <svg class="svg-icon" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          <span>에듀파인 화면에 [최종 기안문(제목+본문)] 즉시 입력</span>
+        </button>
+        <div style="font-size:11px; color:var(--text-3); text-align:center;">
+          💡 품목은 각 예산별로 이미 표에 들어갔으므로, 제목과 본문만 1초 만에 깔끔하게 입력됩니다.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================== -->
+  <!-- 설정 모달                                                                  -->
+  <!-- ========================================================================== -->
+  <div id="settingsModal" class="modal">
+    <div class="modal-content">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <svg class="svg-icon icon-sm" style="color:var(--accent);" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          <h3 style="margin:0; font-size:14px; font-weight:700; color:var(--text);">Gemini API 설정</h3>
+        </div>
+        <span class="badge-version" id="settingsVersion">v2.4.9</span>
+      </div>
+      <p style="font-size:11.5px; color:var(--text-3); margin-bottom:10px;">
+        Google AI Studio에서 무료로 발급받은 Gemini API Key를 입력해주세요.
+      </p>
+      <div class="form-group">
+        <label for="apiKeyInput">Gemini API Key</label>
+        <input type="password" id="apiKeyInput" class="form-control" placeholder="AIzaSy..." />
+      </div>
+      <div id="apiTestResult" style="font-size:11.5px; margin-top:6px; min-height:16px; font-weight:600;"></div>
+
+      <!-- 관련 근거 관리 섹션 -->
+      <div style="border-top:1px solid var(--line); margin-top:12px; padding-top:10px;">
+        <label style="font-size:12px; font-weight:700; display:flex; align-items:center; gap:5px; margin-bottom:4px; color:var(--text);">
+          <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
+          <span>자주 쓰는 관련 근거 관리</span>
+        </label>
+        <p style="font-size:11px; color:var(--text-3); margin-bottom:8px;">
+          자주 사용하는 계획서나 공문명을 등록해두면 드롭다운에서 바로 선택할 수 있습니다.
+        </p>
+        <div style="display:flex; gap:6px; margin-bottom:8px;">
+          <input type="text" id="newRefInput" class="form-control" placeholder="예: 2026학년도 학년운영계획" style="flex:1;" />
+          <button id="btnAddRef" class="btn-secondary" style="padding:6px 12px; font-size:11.5px; white-space:nowrap;">추가</button>
+        </div>
+        <div id="refListContainer" style="max-height:130px; overflow-y:auto; border:1px solid var(--line); border-radius:var(--radius-sm); padding:6px; background:var(--bg);">
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px;">
+        <button id="btnTestKey" class="btn-secondary" style="padding:6px 10px; font-size:11.5px;">
+          <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <span>API 연결 테스트</span>
+        </button>
+        <div style="display:flex; gap:6px;">
+          <button id="btnCancelSettings" class="btn-secondary" style="padding:6px 12px;">닫기</button>
+          <button id="btnSaveSettings" class="btn-primary" style="padding:6px 14px; width:auto;">저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 저작권 푸터 (바이브 프로젝트 허브 통일) -->
+  <footer class="footer-copyright">
+    에듀파인 품의 도우미 &copy; 2026 KIMYERANG.<br>
+    본 앱은 자유롭게 사용할 수 있으나, 저작자의 허락 없는<br>
+    복제·배포·수정은 금지합니다.
+  </footer>
+
+  <script src="xlsx.full.min.js"></script>
+  <script src="sidepanel.js"></script>
+</body>
+</html>

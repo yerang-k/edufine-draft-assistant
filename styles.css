@@ -1,0 +1,920 @@
+/* ==========================================================================
+   에듀파인 품의 도우미 v2.0
+   바이브 프로젝트 허브(Vibe Project Hub) 톤온톤 일체화 & 모던 UI 시스템
+   ========================================================================== */
+
+:root {
+  /* Pretendard 기반 모던 타이포그래피 */
+  --font-main: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+
+  /* 바이브 프로젝트 허브 핵심 톤온톤 팔레트 */
+  --bg: #eef3f9;               /* 차분한 미스트 블루 캔버스 */
+  --bg-soft: #e1ebf5;          /* 부드러운 블루 서브 배경 */
+  --card: #ffffff;             /* 순백색 카드 표면 */
+  --card-hover: #fbfdff;       /* 카드 마우스오버 은은한 틴트 */
+  --line: #d4e1ef;             /* 슬레이트 블루 경계선 */
+  --line-strong: #b8cce2;      /* 강조 경계선 */
+
+  /* 텍스트 (깊은 미드나잇 네이비 & 슬레이트 블루) */
+  --text: #1c2b3b;             /* 메인 헤딩/본문 */
+  --text-2: #495d73;           /* 보조 설명/레이블 */
+  --text-3: #73889e;           /* 뮤트/플레이스홀더 */
+
+  /* 포인트 코발트 블루 (구글식 원색 배제 · 지적이고 세련된 블루) */
+  --accent: #2f5f9e;
+  --accent-hover: #234b80;
+  --accent-soft: #e5effa;
+  --accent-border: #c3daf2;
+  --accent-glow: rgba(47, 95, 158, 0.16);
+
+  /* 상태 컬러 (바이브 프로젝트 허브 스펙) */
+  --ok: #2b6777;
+  --ok-bg: #e5f2f5;
+  --ok-border: #bedce3;
+  --ok-hover: #21515e;
+
+  --danger: #a24242;
+  --danger-bg: #fbeded;
+  --danger-border: #eccdcd;
+
+  --focus-ring: 0 0 0 3px rgba(47, 95, 158, 0.18);
+
+  /* 곡률 & 그림자 */
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 9999px;
+
+  --shadow-xs: 0 1px 2px rgba(24, 48, 79, 0.04);
+  --shadow-card: 0 4px 14px rgba(24, 48, 79, 0.05);
+  --shadow-card-hover: 0 8px 22px rgba(24, 48, 79, 0.08);
+  --shadow-pop: 0 14px 34px -4px rgba(24, 48, 79, 0.16);
+
+  --ease: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-main);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.55;
+  padding: 12px;
+  min-height: 100vh;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+/* 스크롤바 미스트 블루 스타일 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: var(--radius-pill);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-3);
+}
+
+/* 인라인 SVG 아이콘 공통 유틸 */
+.svg-icon {
+  width: 16px;
+  height: 16px;
+  display: inline-block;
+  vertical-align: middle;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  flex-shrink: 0;
+}
+
+.svg-icon.icon-sm {
+  width: 14px;
+  height: 14px;
+}
+
+.svg-icon.icon-lg {
+  width: 20px;
+  height: 20px;
+}
+
+/* ==========================================================================
+   헤더 (바이브 프로젝트 허브 스타일 브랜딩)
+   ========================================================================== */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-xs);
+  margin-bottom: 12px;
+}
+
+.brand-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand-icon-box {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, #2f5f9e 0%, #1e4273 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(47, 95, 158, 0.28);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.brand-icon-box img {
+  width: 24px;
+  height: 24px;
+  display: block;
+}
+
+.brand-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.badge-version {
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent-border);
+  letter-spacing: -0.01em;
+}
+
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  transition: var(--ease);
+  box-shadow: var(--shadow-xs);
+}
+
+.btn-icon:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent-border);
+}
+
+/* ==========================================================================
+   최상단 품의 모드 대분류 탭 (단일 예산 품의 vs 다중 예산 분할 품의)
+   ========================================================================== */
+.main-workflow-tabs {
+  display: flex;
+  background: var(--bg-soft);
+  padding: 3px;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--accent-border);
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.main-tab-btn {
+  flex: 1;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: var(--ease);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.main-tab-btn:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.main-tab-btn.active {
+  background: var(--card);
+  color: var(--accent);
+  font-weight: 800;
+  box-shadow: 0 2px 8px rgba(47, 95, 158, 0.15);
+}
+
+/* ==========================================================================
+   입력 모드 선택 탭 (세련된 세그먼트 컨트롤)
+   ========================================================================== */
+.mode-tabs {
+  display: flex;
+  background: var(--bg-soft);
+  padding: 3px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.mode-tab-btn {
+  flex: 1;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: var(--ease);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.mode-tab-btn:hover {
+  color: var(--text);
+}
+
+.mode-tab-btn.active {
+  background: var(--card);
+  color: var(--accent);
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(24, 48, 79, 0.08);
+}
+
+.tab-badge {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent-border);
+}
+
+/* ==========================================================================
+   카드 공통 컴포넌트
+   ========================================================================== */
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  padding: 14px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-card);
+  transition: var(--ease);
+}
+
+.card:hover {
+  border-color: var(--line-strong);
+}
+
+/* 드롭존 (캡처 업로드 영역) */
+.dropzone {
+  border: 2px dashed var(--line-strong);
+  border-radius: var(--radius);
+  padding: 20px 12px;
+  text-align: center;
+  background-color: var(--bg);
+  cursor: pointer;
+  transition: var(--ease);
+  outline: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.dropzone:hover, .dropzone:focus, .dropzone.dragover {
+  border-color: var(--accent);
+  background-color: var(--accent-soft);
+}
+
+.dropzone .icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  background: var(--card);
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  margin-bottom: 8px;
+  box-shadow: var(--shadow-xs);
+}
+
+.dropzone .text-main {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 3px;
+}
+
+.dropzone .text-sub {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+/* 캡처 이미지 썸네일 그리드 */
+.image-gallery {
+  margin-top: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.gallery-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-2);
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--danger);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 2px 4px;
+}
+
+.btn-link:hover {
+  opacity: 0.8;
+}
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.gallery-item {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  height: 64px;
+  background-color: var(--bg-soft);
+}
+
+.gallery-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.gallery-item-del {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  background: rgba(28, 43, 59, 0.75);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-pill);
+  width: 20px;
+  height: 20px;
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  transition: var(--ease);
+}
+
+.gallery-item-del:hover {
+  background: var(--danger);
+}
+
+/* 폼 요소 */
+.form-group {
+  margin-bottom: 12px;
+}
+
+.form-group label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 5px;
+  color: var(--text-2);
+}
+
+.form-control {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: var(--text);
+  font-size: 12.5px;
+  outline: none;
+  transition: var(--ease);
+}
+
+.form-control:focus {
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+
+select.form-control {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2373889e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 14px;
+  padding-right: 32px;
+}
+
+textarea.form-control {
+  resize: vertical;
+  line-height: 1.5;
+}
+
+/* 버튼 컴포넌트 */
+.btn-primary {
+  width: 100%;
+  background: var(--accent);
+  color: #ffffff;
+  border: none;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 7px;
+  transition: var(--ease);
+  box-shadow: 0 2px 6px rgba(47, 95, 158, 0.25);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  box-shadow: 0 4px 12px rgba(47, 95, 158, 0.35);
+}
+
+.btn-primary:disabled {
+  background: var(--line-strong);
+  color: var(--text-3);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-success {
+  background: var(--ok);
+  color: #ffffff;
+  border: none;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: var(--ease);
+  box-shadow: 0 2px 6px rgba(43, 103, 119, 0.25);
+}
+
+.btn-success:hover {
+  background: var(--ok-hover);
+  box-shadow: 0 4px 12px rgba(43, 103, 119, 0.35);
+}
+
+.btn-secondary {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--line);
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: var(--ease);
+  box-shadow: var(--shadow-xs);
+}
+
+.btn-secondary:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent-border);
+}
+
+.status-msg {
+  font-size: 11.5px;
+  color: var(--accent);
+  margin-top: 10px;
+  text-align: center;
+  font-weight: 600;
+  min-height: 18px;
+  white-space: pre-line;
+  line-height: 1.55;
+  display: block;
+}
+
+/* ==========================================================================
+   분석 결과 카드 & 빠른 수량 조절 바
+   ========================================================================== */
+#quickQtyBox {
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.quick-qty-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.quick-qty-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.quick-total-badge {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--ok);
+  background: var(--ok-bg);
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--ok-border);
+}
+
+.quick-qty-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  box-shadow: var(--shadow-xs);
+}
+
+/* 수량 스텝퍼 */
+.qty-stepper-btn {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--ease);
+}
+
+.qty-stepper-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent-border);
+}
+
+.qty-direct-input {
+  width: 44px;
+  height: 24px;
+  text-align: center;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--card);
+  outline: none;
+}
+
+/* 탭 네비게이션 */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 12px;
+  gap: 8px;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 8px 10px;
+  border: none;
+  background: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-2);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: var(--ease);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.tab-btn:hover {
+  color: var(--text);
+}
+
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 700;
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+/* 품목 내역 테이블 */
+.table-responsive {
+  max-height: 230px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+}
+
+th, td {
+  padding: 7px 9px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+th {
+  background-color: var(--bg);
+  color: var(--text-2);
+  position: sticky;
+  top: 0;
+  font-weight: 600;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+tbody tr:hover {
+  background-color: var(--card-hover);
+}
+
+/* 액션 버튼 그룹 */
+.actions-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+/* ==========================================================================
+   모달 (바이브 프로젝트 허브 스타일 팝업)
+   ========================================================================== */
+.modal {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(28, 43, 59, 0.45);
+  backdrop-filter: blur(4px);
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.modal.active {
+  display: flex;
+}
+
+.modal-content {
+  background: var(--card);
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--line);
+  width: 90%;
+  max-width: 380px;
+  box-shadow: var(--shadow-pop);
+}
+
+.ref-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 8px;
+  font-size: 11.5px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  margin-bottom: 4px;
+}
+
+.ref-item:last-child {
+  margin-bottom: 0;
+}
+
+.ref-item-del {
+  color: var(--danger);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+}
+
+.ref-item-del:hover {
+  background: var(--danger-bg);
+}
+
+/* ==========================================================================
+   저작권 푸터
+   ========================================================================== */
+.footer-copyright {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-3);
+  padding: 16px 8px 10px;
+  line-height: 1.6;
+  word-break: keep-all;
+}
+
+/* 품의 방식 토글 (단일 예산 vs 다중 예산 분할) */
+.workflow-mode-toggle button {
+  transition: all 0.15s ease;
+}
+.workflow-mode-toggle button.active {
+  background: var(--accent) !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(47, 95, 158, 0.25);
+}
+.workflow-mode-toggle button:not(.active) {
+  background: transparent !important;
+  color: var(--text-2) !important;
+}
+
+/* ==========================================================================
+   최상단 품의 모드 탭 (단일 예산 vs 다중 예산 분할)
+   ========================================================================== */
+.main-workflow-tabs {
+  display: flex;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 4px;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.main-tab-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 8px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: var(--ease);
+}
+
+.main-tab-btn:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.main-tab-btn.active {
+  background: var(--card);
+  color: var(--accent);
+  box-shadow: var(--shadow-sm);
+}
+
+/* 다중 예산 스텝 및 가이드 박스 */
+.multi-guide-card {
+  background: #f0f6ff;
+  border: 1.5px solid #bdd7ff;
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.multi-guide-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.multi-budget-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--accent);
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 11.5px;
+  font-weight: 800;
+}
+
+.multi-step-desc {
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: #1e3a5f;
+}
+
+.multi-summary-box {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.multi-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+  border-bottom: 1px dashed var(--line);
+  font-size: 12px;
+}
+
+.multi-summary-row:last-child {
+  border-bottom: none;
+}
+
+.multi-summary-total {
+  font-weight: 800;
+  color: var(--accent);
+  font-size: 13px;
+  padding-top: 6px;
+}

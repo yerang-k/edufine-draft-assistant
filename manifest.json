@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "에듀파인 품의 도우미 (AI 품목/기안문 자동입력)",
+  "version": "2.4.9",
+  "description": "상품 캡처를 붙여넣으면 AI가 상품명과 가격을 인식해 에듀파인 품의 기안문과 엑셀 품목내역을 작성하고 에듀파인 창에 원클릭으로 입력해줍니다.",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "sidePanel",
+    "downloads"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "에듀파인 품의 도우미 열기",
+    "default_icon": {
+      "16": "icon16.png",
+      "32": "icon32.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "32": "icon32.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
