@@ -1665,9 +1665,10 @@ async function injectedFiller(title, body, items) {
   const activeDoc = findActiveProposalDoc(allDocs) || document;
 
   // 0. 에듀파인 예산 선택 여부 점검 및 예산 행 수집 (v2.2.3 정밀 판정)
-  // 0. 에듀파인 예산 선택 여부 점검 (v2.5.4 정밀 판정: 실제 예산 과목/잔액 텍스트 검증)
+  // 0. 에듀파인 예산 선택 여부 점검 (v2.5.5: '세부사업' 예산 그리드 1:1 매핑 정밀 판정)
   function checkBudgetSelected(doc) {
     try {
+      const win = doc.defaultView || window;
       const addRowBtn = findAddRowButton(doc);
       const itemGridEl = doc.querySelector('[id*="grdPrdlstDtl"]');
 
@@ -1677,98 +1678,89 @@ async function injectedFiller(title, body, items) {
       }
 
       const itemTop = (addRowBtn?.clickable || addRowBtn?.leaf || itemGridEl)?.getBoundingClientRect().top || 99999;
-      const allEls = Array.from(doc.querySelectorAll('*'));
+      const allNodes = Array.from(doc.querySelectorAll('*'));
 
-      // 1) 예산내역 헤더 위치 탐색
-      let budgetTop = 0;
-      for (const el of allEls) {
-        const t = (el.textContent || '').trim().replace(/\s+/g, '');
-        if (t === '예산내역' || t === '|예산내역' || (t.includes('예산내역') && t.length <= 8)) {
-          const r = el.getBoundingClientRect();
-          if (r.width > 20 && r.height > 10) {
-            budgetTop = r.top;
-            break;
-          }
-        }
-      }
-
-      // 2) 고정 헤더 라벨 목록 (이 단어들만 있으면 '예산 미선택' 상태)
-      const staticKeywords = [
-        '예산내역', '예산선택', '원가통계비목보기', '미집행', '미집행품의내역조회', '행삭제', '펼치기',
-        '상태', '세부사업', '세부사업잔액', '세부항목', '원가통계비목', '산출내역', '예산현액', '예산잔액',
-        '요구금액', '합계', 'N', '조회결과가없습니다', '조회된내역이없습니다', '데이터가없습니다', '조회된데이터가없습니다'
-      ];
-
-      // 3) 예산 영역 내부(budgetTop ~ itemTop 사이)의 실질적인 예산 데이터 존재 여부 검사
-      let foundDynamicBudgetText = false;
-      let foundBudgetAmount = false;
-
-      const candidateNodes = allEls.filter(el => {
-        if (el.children.length > 0) return false; // 말단 텍스트 노드만
-        const r = el.getBoundingClientRect();
-        if (r.width <= 0 || r.height <= 0) return false;
-        if (budgetTop > 0 && r.top < budgetTop - 5) return false;
-        if (r.top >= itemTop - 10) return false; // 품목 표 윗부분만
-        return true;
-      });
-
-      for (const node of candidateNodes) {
-        const raw = (node.textContent || '').trim();
-        const clean = raw.replace(/\s+/g, '');
-        if (!clean) continue;
-
-        // 예산액/잔액이 1,000원 이상 들어있는 경우 (예: '1,254,480', '2,600,000')
-        if (/^\d{1,3}(,\d{3})+$/.test(clean) && parseInt(clean.replace(/,/g, '')) > 0) {
-          foundBudgetAmount = true;
-        }
-
-        // 고정 헤더 문구가 아닌 실제 세부사업/예산과목 한글 텍스트 (예: '국어 교과활동', '교육운영비', '수업용품구입비')
-        if (/[가-힣]{2,}/.test(clean) && !staticKeywords.includes(clean)) {
-          foundDynamicBudgetText = true;
-        }
-      }
-
-      // 4) Nexacro 예산 그리드 데이터 행 검증
-      const budgetGridRows = Array.from(doc.querySelectorAll('[id*=".body.gridrow_"]')).filter(el => {
+      // 1) 예산 그리드 전용 헤더 셀 탐색 ('세부사업' 또는 '원가통계비목')
+      // - 왼쪽 메뉴(r.left < 180) 철저 배제!
+      // - 실제 표 헤더(.head.) 셀만 지정
+      const budgetHeadCell = allNodes.find(el => {
         const id = el.id || '';
-        if (id.includes('grdPrdlstDtl') || id.includes('divAuth2')) return false;
+        if (!id.includes('.head.') && el.tagName !== 'TH') return false;
+        const t = (el.textContent || '').trim().replace(/\s+/g, '');
         const r = el.getBoundingClientRect();
-        return r.width > 100 && r.height > 10 && r.top < itemTop - 10;
+        return (t === '세부사업' || t === '*세부사업' || t === '원가통계비목' || t === '산출내역') &&
+               r.width > 20 && r.height > 10 && r.left >= 180;
       });
 
-      let rowHasValidBudgetData = false;
-      for (const row of budgetGridRows) {
-        const t = (row.textContent || '').replace(/\s+/g, '');
-        if (t && !t.includes('조회') && !t.includes('없습니다')) {
-          if (/[가-힣]{2,}/.test(t)) {
-            rowHasValidBudgetData = true;
-            break;
-          }
+      let budgetGridId = '';
+      if (budgetHeadCell) {
+        budgetGridId = budgetHeadCell.id.split('.head.')[0].split(':')[0];
+      }
+
+      // 2) 예산 그리드의 실제 데이터 행(.body.gridrow_)만 정밀 조회!
+      let validRows = [];
+      if (budgetGridId) {
+        validRows = Array.from(doc.querySelectorAll(`[id^="${budgetGridId}.body.gridrow_"]`)).filter(el => {
+          return /\.body\.gridrow_\d+$/.test(el.id || '');
+        });
+      } else {
+        // 폴백: 품목 그리드(grdPrdlstDtl) 및 왼쪽 메뉴(left < 180)를 제외한 예산 영역 행
+        validRows = Array.from(doc.querySelectorAll('[id*=".body.gridrow_"]')).filter(el => {
+          const id = el.id || '';
+          if (!/\.body\.gridrow_\d+$/.test(id)) return false;
+          if (id.includes('grdPrdlstDtl') || id.includes('divAuth2') || id.includes('grdLeft') || id.includes('grdMenu')) return false;
+          const r = el.getBoundingClientRect();
+          return r.left >= 180 && r.width > 100 && r.height > 10 && r.top < itemTop - 10;
+        });
+      }
+
+      // 3) 찾은 예산 행의 실제 내용 검사:
+      // - 빈 행(데이터 없음), '조회된 결과가 없습니다' 등은 예산 미선택!
+      // - 실제 과목명(2글자 이상 한글)과 유효 금액 숫자가 존재해야만 '예산 선택 완료' 판정!
+      let isBudgetPresent = false;
+      let budgetDetailText = '';
+
+      for (const row of validRows) {
+        const raw = (row.textContent || '').replace(/\s+/g, '');
+        if (!raw || raw === 'N' || raw.includes('조회') || raw.includes('없습니다') || raw.includes('결과가없습니다')) continue;
+
+        // 실제 예산 세부사업명(한글 2글자 이상)이 존재하는지 확인
+        const hasKoreanSubject = /[가-힣]{2,}/.test(raw);
+        // 금액 숫자(1,000원 이상)가 포함되어 있는지 확인
+        const hasNumber = /\d{1,3},\d{3}/.test(raw) || /\d{4,}/.test(raw);
+
+        if (hasKoreanSubject && hasNumber) {
+          isBudgetPresent = true;
+          budgetDetailText = raw.slice(0, 30);
+          break;
         }
       }
 
-      // 5) 화면 하단 바의 '예산잔액' 확인
-      let bottomBudgetPositive = false;
-      try {
-        for (const el of allEls) {
-          const t = (el.textContent || '').trim().replace(/\s+/g, '');
-          if (t === '예산잔액' && el.getBoundingClientRect().top >= itemTop) {
-            const next = el.nextElementSibling || el.parentElement?.querySelector('input, [id*="text"], div:not(:empty)');
-            if (next) {
-              const v = (next.value || next.textContent || '').trim().replace(/,/g, '');
-              if (parseInt(v) > 0) bottomBudgetPositive = true;
+      // 4) Nexacro Dataset(nxDs)으로 2차 확정 검증
+      if (!isBudgetPresent && budgetGridId) {
+        try {
+          const nxGrid = resolveNexacroComponent(win, budgetGridId, doc.getElementById(budgetGridId));
+          if (nxGrid) {
+            const nxDs = resolveNexacroDataset(nxGrid, win);
+            if (nxDs && typeof nxDs.getRowCount === 'function' && nxDs.getRowCount() > 0) {
+              for (let c = 0; c < (nxDs.getColCount?.() || 10); c++) {
+                const v = String(nxDs.getColumn(0, c) ?? '').trim();
+                if (v && /[가-힣]{2,}/.test(v) && !v.includes('조회')) {
+                  isBudgetPresent = true;
+                  budgetDetailText = `ds:${v}`;
+                  break;
+                }
+              }
             }
           }
-        }
-      } catch(e) {}
-
-      const isBudgetPresent = foundDynamicBudgetText || foundBudgetAmount || rowHasValidBudgetData || bottomBudgetPositive;
+        } catch(e) {}
+      }
 
       return {
         selected: isBudgetPresent,
         isProposalScreen: true,
-        budgetRows: budgetGridRows,
-        reason: isBudgetPresent ? `detected(text:${foundDynamicBudgetText},amt:${foundBudgetAmount},row:${rowHasValidBudgetData})` : 'no_budget_selected'
+        budgetRows: validRows,
+        reason: isBudgetPresent ? `selected_budget(${budgetDetailText})` : 'no_budget_selected'
       };
     } catch(e) {
       return { selected: true, isProposalScreen: false, budgetRows: [], reason: `error:${e.message}` };
@@ -2667,7 +2659,7 @@ async function injectedFiller(title, body, items) {
         }
         const startRowIndex = existingFilledCount;
 
-        const liveBanner = createOrUpdateBanner(targetDoc, '🚀 [에듀파인 품의 도우미 v2.5.4] 품목 표 자동 행추가 및 셀 타이핑을 시작합니다...');
+        const liveBanner = createOrUpdateBanner(targetDoc, '🚀 [에듀파인 품의 도우미 v2.5.5] 품목 표 자동 행추가 및 셀 타이핑을 시작합니다...');
 
         for (let i = 0; i < items.length; i++) {
           const curItem = items[i];
@@ -3642,80 +3634,54 @@ async function executeInjection({
               // ★ 품목 [행추가] 버튼이나 품목 표 그리드가 실재하는 프레임만 품의 화면으로 인정!
               if (addRowBtn || itemGridEl) {
                 const itemTop = (addRowBtn || itemGridEl).getBoundingClientRect().top || 99999;
-                const allEls = Array.from(doc.querySelectorAll('*'));
+                const allNodes = Array.from(doc.querySelectorAll('*'));
 
-                // 1) 예산내역 헤더 위치
-                let budgetTop = 0;
-                for (const el of allEls) {
-                  const t = (el.textContent || '').trim().replace(/\s+/g, '');
-                  if (t === '예산내역' || t === '|예산내역' || (t.includes('예산내역') && t.length <= 8)) {
-                    const r = el.getBoundingClientRect();
-                    if (r.width > 20 && r.height > 10) { budgetTop = r.top; break; }
-                  }
-                }
-
-                const staticKeywords = [
-                  '예산내역', '예산선택', '원가통계비목보기', '미집행', '미집행품의내역조회', '행삭제', '펼치기',
-                  '상태', '세부사업', '세부사업잔액', '세부항목', '원가통계비목', '산출내역', '예산현액', '예산잔액',
-                  '요구금액', '합계', 'N', '조회결과가없습니다', '조회된내역이없습니다', '데이터가없습니다', '조회된데이터가없습니다'
-                ];
-
-                let foundDynamicBudgetText = false;
-                let foundBudgetAmount = false;
-
-                const candidateNodes = allEls.filter(el => {
-                  if (el.children.length > 0) return false;
-                  const r = el.getBoundingClientRect();
-                  if (r.width <= 0 || r.height <= 0) return false;
-                  if (budgetTop > 0 && r.top < budgetTop - 5) return false;
-                  if (r.top >= itemTop - 10) return false;
-                  return true;
-                });
-
-                for (const node of candidateNodes) {
-                  const raw = (node.textContent || '').trim();
-                  const clean = raw.replace(/\s+/g, '');
-                  if (!clean) continue;
-                  if (/^\d{1,3}(,\d{3})+$/.test(clean) && parseInt(clean.replace(/,/g, '')) > 0) {
-                    foundBudgetAmount = true;
-                  }
-                  if (/[가-힣]{2,}/.test(clean) && !staticKeywords.includes(clean)) {
-                    foundDynamicBudgetText = true;
-                  }
-                }
-
-                // 2) 그리드 행 검사
-                let rowHasValidBudgetData = false;
-                const bRows = Array.from(doc.querySelectorAll('[id*=".body.gridrow_"]')).filter(el => {
+                // 1) 예산 그리드 전용 헤더 셀 탐색 ('세부사업' 또는 '원가통계비목')
+                const budgetHeadCell = allNodes.find(el => {
                   const id = el.id || '';
-                  if (id.includes('grdPrdlstDtl') || id.includes('divAuth2')) return false;
+                  if (!id.includes('.head.') && el.tagName !== 'TH') return false;
+                  const t = (el.textContent || '').trim().replace(/\s+/g, '');
                   const r = el.getBoundingClientRect();
-                  return r.width > 100 && r.height > 10 && r.top < itemTop - 10;
+                  return (t === '세부사업' || t === '*세부사업' || t === '원가통계비목' || t === '산출내역') &&
+                         r.width > 20 && r.height > 10 && r.left >= 180;
                 });
-                for (const row of bRows) {
-                  const t = (row.textContent || '').replace(/\s+/g, '');
-                  if (t && !t.includes('조회') && !t.includes('없습니다') && /[가-힣]{2,}/.test(t)) {
-                    rowHasValidBudgetData = true;
+
+                let budgetGridId = '';
+                if (budgetHeadCell) {
+                  budgetGridId = budgetHeadCell.id.split('.head.')[0].split(':')[0];
+                }
+
+                // 2) 예산 그리드의 실제 데이터 행(.body.gridrow_)만 정밀 조회!
+                let validRows = [];
+                if (budgetGridId) {
+                  validRows = Array.from(doc.querySelectorAll(`[id^="${budgetGridId}.body.gridrow_"]`)).filter(el => {
+                    return /\.body\.gridrow_\d+$/.test(el.id || '');
+                  });
+                } else {
+                  validRows = Array.from(doc.querySelectorAll('[id*=".body.gridrow_"]')).filter(el => {
+                    const id = el.id || '';
+                    if (!/\.body\.gridrow_\d+$/.test(id)) return false;
+                    if (id.includes('grdPrdlstDtl') || id.includes('divAuth2') || id.includes('grdLeft') || id.includes('grdMenu')) return false;
+                    const r = el.getBoundingClientRect();
+                    return r.left >= 180 && r.width > 100 && r.height > 10 && r.top < itemTop - 10;
+                  });
+                }
+
+                // 3) 찾은 예산 행의 실제 내용 검사
+                let hasBudget = false;
+                for (const row of validRows) {
+                  const raw = (row.textContent || '').replace(/\s+/g, '');
+                  if (!raw || raw === 'N' || raw.includes('조회') || raw.includes('없습니다') || raw.includes('결과가없습니다')) continue;
+
+                  const hasKoreanSubject = /[가-힣]{2,}/.test(raw);
+                  const hasNumber = /\d{1,3},\d{3}/.test(raw) || /\d{4,}/.test(raw);
+
+                  if (hasKoreanSubject && hasNumber) {
+                    hasBudget = true;
                     break;
                   }
                 }
 
-                // 3) 하단 요약바 '예산잔액' 검사
-                let bottomBudgetPositive = false;
-                try {
-                  for (const el of allEls) {
-                    const t = (el.textContent || '').trim().replace(/\s+/g, '');
-                    if (t === '예산잔액' && el.getBoundingClientRect().top >= itemTop) {
-                      const next = el.nextElementSibling || el.parentElement?.querySelector('input, [id*="text"], div:not(:empty)');
-                      if (next) {
-                        const v = (next.value || next.textContent || '').trim().replace(/,/g, '');
-                        if (parseInt(v) > 0) bottomBudgetPositive = true;
-                      }
-                    }
-                  }
-                } catch(e) {}
-
-                const hasBudget = foundDynamicBudgetText || foundBudgetAmount || rowHasValidBudgetData || bottomBudgetPositive;
                 return { isProposalScreen: true, hasBudget: hasBudget };
               }
             }
@@ -3798,7 +3764,7 @@ async function executeInjection({
       return;
     }
 
-    const currentVer = chrome.runtime.getManifest()?.version || "2.5.4";
+    const currentVer = chrome.runtime.getManifest()?.version || "2.5.5";
     let msg = `[에듀파인 화면 입력 완료! (v${currentVer})]\n\n`;
 
     if (injectDraft) {
@@ -3959,7 +3925,7 @@ async function checkForAppUpdates() {
   }
 
   try {
-    const curVer = chrome.runtime.getManifest()?.version || "2.5.4";
+    const curVer = chrome.runtime.getManifest()?.version || "2.5.5";
     const { lastUpdateCheckTime, latestRemoteVer, lastDismissedUpdateVer } = await chrome.storage.local.get([
       "lastUpdateCheckTime", "latestRemoteVer", "lastDismissedUpdateVer"
     ]);
