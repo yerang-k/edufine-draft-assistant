@@ -1706,43 +1706,69 @@ async function injectedFiller(title, body, items) {
       const itemTop = (addRowBtn?.clickable || addRowBtn?.leaf || itemGridEl || itemHeaderEl)?.getBoundingClientRect().top || 99999;
       const budgetTop = budgetHeaderEl ? budgetHeaderEl.getBoundingClientRect().top : 50;
 
-      // 1) 예산 영역에 존재하는 Nexacro 그리드 데이터 행(.body.gridrow_N) 탐색
-      const budgetRows = Array.from(doc.querySelectorAll('[id*=".body.gridrow_"]')).filter(el => {
-        if (!/\.body\.gridrow_\d+$/.test(el.id || '')) return false;
-        // 품목 그리드(grdPrdlstDtl)의 행은 배제!
-        if (el.id.includes('grdPrdlstDtl') || el.id.includes('divAuth2')) return false;
+      // 1) 예산 영역에 존재하는 Nexacro 그리드 데이터 행(.body.gridrow_N) 정밀 탐색
+      // - MainFrame, LeftFrame (에듀파인 왼쪽 사이드바 전체 메뉴 그리드) 철저 배제!
+      // - 화면 좌측 메뉴바 영역(left < 180) 철저 배제!
+      // - divAuth2(품목 영역) 및 grdPrdlstDtl 철저 배제!
+      const validBudgetRows = Array.from(doc.querySelectorAll('[id*=".body.gridrow_"]')).filter(el => {
+        const id = el.id || '';
+        if (!/\.body\.gridrow_\d+$/.test(id)) return false;
+        if (id.includes('.MainFrame.') || id.includes('.LeftFrame.') || id.includes('.TopFrame.')) return false;
+        if (id.includes('grdPrdlstDtl') || id.includes('divAuth2')) return false;
+
         const r = el.getBoundingClientRect();
         if (r.width < 100 || r.height < 10) return false;
-        // 품목 영역보다 위쪽에 위치한 행만 예산 행으로 간주
-        return (r.top >= (budgetTop - 25) && r.top < itemTop - 10);
+        if (r.left < 180) return false; // 왼쪽 메뉴 영역 배제
+        if (r.top < (budgetTop - 25) || r.top >= itemTop - 10) return false; // 품목 위쪽 예산 영역만 한정
+
+        // ★ 핵심: 단순 빈 행이나 "조회된 내역이 없습니다" 문구는 예산 선택이 아님!
+        const rawText = (el.textContent || '').replace(/\s+/g, '');
+        if (!rawText || rawText === 'N' || rawText.includes('조회된') || rawText.includes('없습니다')) return false;
+
+        // 실제 예산과목이나 사업명 등 유의미한 한글 텍스트(2글자 이상)가 들어있어야 실제 선택된 예산 행!
+        return /[가-힣]{2,}/.test(rawText);
       });
 
       // 2) Nexacro Dataset 기반 검증 병행
-      let dsRowCount = null;
+      let dsValidRowCount = 0;
       try {
-        const budgetGridNode = doc.querySelector('[id*="divAuth1"] [id*="grd"]');
+        const budgetGridNode = doc.querySelector('[id*="divAuth1"] [id*="grd"]') ||
+                               doc.querySelector('[id*="grdBudget"]') ||
+                               doc.querySelector('[id*="grdM"]');
         if (budgetGridNode) {
           const bGridId = budgetGridNode.id.split('.head.')[0].split('.body.')[0].split(':')[0];
           const bNxGrid = resolveNexacroComponent(win, bGridId, budgetGridNode);
           if (bNxGrid) {
             const bNxDs = resolveNexacroDataset(bNxGrid, win);
             if (bNxDs && typeof bNxDs.getRowCount === 'function') {
-              dsRowCount = bNxDs.getRowCount();
+              const rc = bNxDs.getRowCount();
+              for (let r = 0; r < rc; r++) {
+                let rowHasData = false;
+                const colCount = typeof bNxDs.getColCount === 'function' ? bNxDs.getColCount() : 0;
+                for (let c = 0; c < colCount; c++) {
+                  const val = String(bNxDs.getColumn(r, c) ?? '').trim();
+                  if (val && /[가-힣]{2,}/.test(val)) {
+                    rowHasData = true;
+                    break;
+                  }
+                }
+                if (rowHasData) dsValidRowCount++;
+              }
             }
           }
         }
       } catch(e) {}
 
-      // ★ 핵심 규칙: 예산 행이 발견되거나 Dataset의 행 수가 1 이상이면 '선택됨', 아니면 무조건 '미선택' 판정!
-      const isBudgetPresent = (dsRowCount !== null && dsRowCount > 0) || (budgetRows.length > 0);
+      // ★ 판정: 실제 한글 예산명이 포함된 데이터 행이 있거나, Dataset에 유효 데이터 행이 1개 이상 있을 때만 '선택됨'!
+      const isBudgetPresent = (dsValidRowCount > 0) || (validBudgetRows.length > 0);
       if (isBudgetPresent) {
-        return { selected: true, isProposalScreen: true, budgetRows: budgetRows, reason: `ok_budget:${dsRowCount ?? budgetRows.length}` };
+        return { selected: true, isProposalScreen: true, budgetRows: validBudgetRows, reason: `ok_budget:${dsValidRowCount || validBudgetRows.length}` };
       } else {
         return {
           selected: false,
           isProposalScreen: true,
           budgetRows: [],
-          reason: dsRowCount === 0 ? 'empty_budget_ds' : 'no_budget_rows'
+          reason: (dsValidRowCount === 0 && validBudgetRows.length === 0) ? 'no_budget_selected' : 'empty_budget_ds'
         };
       }
     } catch(e) {
@@ -2642,7 +2668,7 @@ async function injectedFiller(title, body, items) {
         }
         const startRowIndex = existingFilledCount;
 
-        const liveBanner = createOrUpdateBanner(targetDoc, '🚀 [에듀파인 품의 도우미 v2.5.2] 품목 표 자동 행추가 및 셀 타이핑을 시작합니다...');
+        const liveBanner = createOrUpdateBanner(targetDoc, '🚀 [에듀파인 품의 도우미 v2.5.3] 품목 표 자동 행추가 및 셀 타이핑을 시작합니다...');
 
         for (let i = 0; i < items.length; i++) {
           const curItem = items[i];
@@ -3617,28 +3643,49 @@ async function executeInjection({
 
               if (addRowBtn || itemGridEl || hasProposalText) {
                 const itemTop = (addRowBtn || itemGridEl)?.getBoundingClientRect().top || 99999;
-                const budgetRows = Array.from(doc.querySelectorAll('[id*=".body.gridrow_"]')).filter(el => {
-                  if (!/\.body\.gridrow_\d+$/.test(el.id || '')) return false;
-                  if (el.id.includes('grdPrdlstDtl') || el.id.includes('divAuth2')) return false;
+                // 예산 그리드 데이터 행 정밀 검사
+                const validBudgetRows = Array.from(doc.querySelectorAll('[id*=".body.gridrow_"]')).filter(el => {
+                  const id = el.id || '';
+                  if (!/\.body\.gridrow_\d+$/.test(id)) return false;
+                  if (id.includes('.MainFrame.') || id.includes('.LeftFrame.') || id.includes('.TopFrame.')) return false;
+                  if (id.includes('grdPrdlstDtl') || id.includes('divAuth2')) return false;
+
                   const r = el.getBoundingClientRect();
-                  return r.width > 100 && r.height > 10 && r.top < itemTop - 10;
+                  if (r.width < 100 || r.height < 10) return false;
+                  if (r.left < 180) return false; // 왼쪽 메뉴 배제
+                  if (r.top >= itemTop - 10) return false; // 품목 표 위쪽만
+
+                  const rawText = (el.textContent || '').replace(/\s+/g, '');
+                  if (!rawText || rawText === 'N' || rawText.includes('조회된') || rawText.includes('없습니다')) return false;
+                  return /[가-힣]{2,}/.test(rawText);
                 });
 
-                let dsCount = null;
+                let dsValidCount = 0;
                 try {
-                  const bGrid = doc.querySelector('[id*="divAuth1"] [id*="grd"]');
+                  const bGrid = doc.querySelector('[id*="divAuth1"] [id*="grd"]') || doc.querySelector('[id*="grdBudget"]');
                   if (bGrid && window.nexacro) {
                     const bId = bGrid.id.split('.head.')[0].split('.body.')[0].split(':')[0];
                     let comp = window;
                     bId.split('.').forEach(p => { if (comp) comp = comp[p]; });
-                    if (comp?._binddataset) {
-                      dsCount = comp._binddataset.getRowCount();
+                    const ds = comp?._binddataset || (typeof comp?.getBindDataset === 'function' ? comp.getBindDataset() : null);
+                    if (ds && typeof ds.getRowCount === 'function') {
+                      const rc = ds.getRowCount();
+                      for (let r = 0; r < rc; r++) {
+                        const colCount = typeof ds.getColCount === 'function' ? ds.getColCount() : 0;
+                        for (let c = 0; c < colCount; c++) {
+                          const val = String(ds.getColumn(r, c) ?? '').trim();
+                          if (val && /[가-힣]{2,}/.test(val)) {
+                            dsValidCount++;
+                            break;
+                          }
+                        }
+                      }
                     }
                   }
                 } catch(e) {}
 
-                const hasBudget = (dsCount !== null && dsCount > 0) || (budgetRows.length > 0);
-                return { isProposalScreen: true, hasBudget: hasBudget, budgetRowCount: budgetRows.length, dsCount: dsCount };
+                const hasBudget = (dsValidCount > 0) || (validBudgetRows.length > 0);
+                return { isProposalScreen: true, hasBudget: hasBudget, budgetRowCount: validBudgetRows.length, dsValidCount: dsValidCount };
               }
             }
             return { isProposalScreen: false };
@@ -3720,7 +3767,7 @@ async function executeInjection({
       return;
     }
 
-    const currentVer = chrome.runtime.getManifest()?.version || "2.5.2";
+    const currentVer = chrome.runtime.getManifest()?.version || "2.5.3";
     let msg = `[에듀파인 화면 입력 완료! (v${currentVer})]\n\n`;
 
     if (injectDraft) {
@@ -3881,7 +3928,7 @@ async function checkForAppUpdates() {
   }
 
   try {
-    const curVer = chrome.runtime.getManifest()?.version || "2.5.2";
+    const curVer = chrome.runtime.getManifest()?.version || "2.5.3";
     const { lastUpdateCheckTime, latestRemoteVer, lastDismissedUpdateVer } = await chrome.storage.local.get([
       "lastUpdateCheckTime", "latestRemoteVer", "lastDismissedUpdateVer"
     ]);
