@@ -1397,7 +1397,10 @@ async function injectedFiller(title, body, items) {
       unit: null,
       price: null,
       amt: null,
-      budget: null
+      budget: null,
+      allAmtColIds: [],
+      allPriceColIds: [],
+      allQtyColIds: []
     };
 
     if (nxGrid && typeof nxGrid.getCellCount === 'function' && typeof nxGrid.getCellProperty === 'function') {
@@ -1422,7 +1425,6 @@ async function injectedFiller(title, body, items) {
           if (bindTxt.toLowerCase().startsWith('bind:')) {
             colId = bindTxt.slice(5).trim();
           }
-          if (!colId) continue;
 
           const bodyCol = nxGrid.getCellProperty('body', c, 'col');
           const headTxt = (headTextByCol[bodyCol] || headTextByCol[c] || '').replace(/\s+/g, '');
@@ -1433,12 +1435,15 @@ async function injectedFiller(title, body, items) {
             colMap.spec = { cellIdx: c, colId };
           } else if (!colMap.qty && headTxt.includes('수량')) {
             colMap.qty = { cellIdx: c, colId };
+            if (colId && !colMap.allQtyColIds.includes(colId)) colMap.allQtyColIds.push(colId);
           } else if (!colMap.unit && headTxt.includes('단위')) {
             colMap.unit = { cellIdx: c, colId };
           } else if (!colMap.price && (headTxt.includes('예상단가') || headTxt.includes('단가')) && !headTxt.includes('금액')) {
             colMap.price = { cellIdx: c, colId };
+            if (colId && !colMap.allPriceColIds.includes(colId)) colMap.allPriceColIds.push(colId);
           } else if (!colMap.amt && (headTxt.includes('예상금액') || headTxt.includes('금액'))) {
             colMap.amt = { cellIdx: c, colId };
+            if (colId && !colMap.allAmtColIds.includes(colId)) colMap.allAmtColIds.push(colId);
           }
         }
 
@@ -1450,10 +1455,22 @@ async function injectedFiller(title, body, items) {
         }
         if (!colMap.name?.colId && bodyCount > 3) colMap.name = { cellIdx: 3, colId: getBindCol(3) };
         if (!colMap.spec?.colId && bodyCount > 4) colMap.spec = { cellIdx: 4, colId: getBindCol(4) };
-        if (!colMap.qty?.colId && bodyCount > 5) colMap.qty = { cellIdx: 5, colId: getBindCol(5) };
+        if (!colMap.qty?.colId && bodyCount > 5) {
+          colMap.qty = { cellIdx: 5, colId: getBindCol(5) };
+          if (colMap.qty.colId && !colMap.allQtyColIds.includes(colMap.qty.colId)) colMap.allQtyColIds.push(colMap.qty.colId);
+        }
         if (!colMap.unit?.colId && bodyCount > 6) colMap.unit = { cellIdx: 6, colId: getBindCol(6) };
-        if (!colMap.price?.colId && bodyCount > 7) colMap.price = { cellIdx: 7, colId: getBindCol(7) };
-        if (!colMap.amt?.colId && bodyCount > 8) colMap.amt = { cellIdx: 8, colId: getBindCol(8) };
+        if (!colMap.price?.colId && bodyCount > 7) {
+          colMap.price = { cellIdx: 7, colId: getBindCol(7) };
+          if (colMap.price.colId && !colMap.allPriceColIds.includes(colMap.price.colId)) colMap.allPriceColIds.push(colMap.price.colId);
+        }
+        if (!colMap.amt?.colId && bodyCount > 8) {
+          colMap.amt = { cellIdx: 8, colId: getBindCol(8) };
+          if (colMap.amt.colId && !colMap.allAmtColIds.includes(colMap.amt.colId)) colMap.allAmtColIds.push(colMap.amt.colId);
+        } else if (!colMap.amt?.colId && bodyCount > 7) {
+          colMap.amt = { cellIdx: 7, colId: getBindCol(7) };
+          if (colMap.amt.colId && !colMap.allAmtColIds.includes(colMap.amt.colId)) colMap.allAmtColIds.push(colMap.amt.colId);
+        }
       } catch(e) {}
     }
 
@@ -1463,19 +1480,47 @@ async function injectedFiller(title, body, items) {
         for (let i = 0; i < colCount; i++) {
           const id = String(nxDs.getColID(i) || '').trim();
           const lower = id.toLowerCase();
-          if ((!colMap.name || !colMap.name.colId) && /^(item_nm|item_desc|prdlst_nm|itm_nm|gds_nm|itemnm|name|cn|prdlst_cn)$/i.test(lower)) {
+          if ((!colMap.name || !colMap.name.colId) &&
+              (/^(item_nm|item_desc|prdlst_nm|itm_nm|gds_nm|itemnm|name|cn|prdlst_cn|prdlst_title|demand_nm|item_name)$/i.test(lower) ||
+               (lower.includes('prdlst') && lower.includes('nm')) ||
+               (lower.includes('item') && lower.includes('nm')))) {
             colMap.name = { ...(colMap.name || {}), colId: id };
-          } else if ((!colMap.spec || !colMap.spec.colId) && /^(item_spec|spec|std|stnd_nm|spec_desc|std_nm)$/i.test(lower)) {
+          } else if ((!colMap.spec || !colMap.spec.colId) &&
+                     (/^(item_spec|spec|std|stnd_nm|spec_desc|std_nm|prdlst_stnd|prdlst_spec)$/i.test(lower) ||
+                      lower.includes('stnd') || lower.includes('spec'))) {
             colMap.spec = { ...(colMap.spec || {}), colId: id };
-          } else if ((!colMap.qty || !colMap.qty.colId) && /^(qty|req_qty|item_qty|cnt|order_qty)$/i.test(lower)) {
-            colMap.qty = { ...(colMap.qty || {}), colId: id };
-          } else if ((!colMap.unit || !colMap.unit.colId) && /^(unit|unit_cd|item_unit|unt_cd|unt_nm)$/i.test(lower)) {
+          }
+
+          // 수량 컬럼 식별
+          if (/^(qty|req_qty|item_qty|cnt|order_qty|prdlst_qty|demand_qty)$/i.test(lower) || lower.includes('qty')) {
+            if (!colMap.qty || !colMap.qty.colId) colMap.qty = { ...(colMap.qty || {}), colId: id };
+            if (!colMap.allQtyColIds.includes(id)) colMap.allQtyColIds.push(id);
+          }
+
+          // 단위 컬럼 식별
+          if ((!colMap.unit || !colMap.unit.colId) &&
+              (/^(unit|unit_cd|item_unit|unt_cd|unt_nm|prdlst_unt)$/i.test(lower) ||
+               (lower.includes('unt') && lower.includes('cd')))) {
             colMap.unit = { ...(colMap.unit || {}), colId: id };
-          } else if ((!colMap.price || !colMap.price.colId) && /^(unit_price|est_unit_price|uprc|price|req_uprc|unt_prc|expct_uprc|prdlst_uprc)$/i.test(lower)) {
-            colMap.price = { ...(colMap.price || {}), colId: id };
-          } else if ((!colMap.amt || !colMap.amt.colId) && /^(est_amt|amt|req_amt|tot_amt|total_amt|item_amt|expct_amt|prdlst_amt)$/i.test(lower)) {
-            colMap.amt = { ...(colMap.amt || {}), colId: id };
-          } else if ((!colMap.budget || !colMap.budget.colId) && /^(budget_no|budget_sn|bdg_cd|bg_sn|budget_num)$/i.test(lower)) {
+          }
+
+          // 예상단가 컬럼 식별
+          if (/^(unit_price|est_unit_price|uprc|price|req_uprc|unt_prc|expct_uprc|prdlst_uprc|estm_uprc|unit_prc|expct_prc|estm_prc|req_prc)$/i.test(lower) ||
+              lower.includes('uprc') || (lower.includes('price') && !lower.includes('amt'))) {
+            if (!colMap.price || !colMap.price.colId) colMap.price = { ...(colMap.price || {}), colId: id };
+            if (!colMap.allPriceColIds.includes(id)) colMap.allPriceColIds.push(id);
+          }
+
+          // 예상금액 컬럼 식별 (핵심 필수값: 누락 완벽 방어)
+          if (/^(est_amt|amt|req_amt|tot_amt|total_amt|item_amt|expct_amt|prdlst_amt|estm_amt|prdlst_expct_amt|req_expct_amt|demand_amt|dsgn_amt|exp_amt)$/i.test(lower) ||
+              (lower.includes('amt') && !lower.includes('uprc') && !lower.includes('prc'))) {
+            if (!colMap.amt || !colMap.amt.colId) colMap.amt = { ...(colMap.amt || {}), colId: id };
+            if (!colMap.allAmtColIds.includes(id)) colMap.allAmtColIds.push(id);
+          }
+
+          // 예산 식별
+          if ((!colMap.budget || !colMap.budget.colId) &&
+              /^(budget_no|budget_sn|bdg_cd|bg_sn|budget_num)$/i.test(lower)) {
             colMap.budget = { ...(colMap.budget || {}), colId: id };
           }
         }
@@ -2222,16 +2267,17 @@ async function injectedFiller(title, body, items) {
       return r.width > 10 && r.height > 10;
     });
 
-    const colX = { name: null, spec: null, qty: null, unit: null, price: null };
+    const colX = { name: null, spec: null, qty: null, unit: null, price: null, amt: null };
     for (const h of headerCells) {
       const txt = (h.textContent || '').trim().replace(/\s+/g, '');
       const r = h.getBoundingClientRect();
       const center = r.left + r.width / 2;
-      if ((txt === '*내용' || txt === '내용') && colX.name === null) colX.name = center;
-      else if (txt === '규격' && colX.spec === null) colX.spec = center;
-      else if (txt === '수량' && colX.qty === null) colX.qty = center;
-      else if (txt === '단위' && colX.unit === null) colX.unit = center;
-      else if ((txt === '예상단가' || txt === '단가') && !txt.includes('금액') && colX.price === null) colX.price = center;
+      if ((txt === '*내용' || txt === '내용' || txt.includes('품명')) && colX.name === null) colX.name = center;
+      else if (txt.includes('규격') && colX.spec === null) colX.spec = center;
+      else if (txt.includes('수량') && colX.qty === null) colX.qty = center;
+      else if (txt.includes('단위') && colX.unit === null) colX.unit = center;
+      else if ((txt.includes('예상단가') || txt.includes('단가')) && !txt.includes('금액') && colX.price === null) colX.price = center;
+      else if ((txt.includes('예상금액') || txt.includes('금액')) && colX.amt === null) colX.amt = center;
     }
 
     function findCellByX(centerX) {
@@ -2255,18 +2301,29 @@ async function injectedFiller(title, body, items) {
       spec: findCellByX(colX.spec),
       qty: findCellByX(colX.qty),
       unit: null, // ★ 사용자 요청: 단위는 선택 안 되게 유지
-      price: findCellByX(colX.price)
+      price: findCellByX(colX.price),
+      amt: findCellByX(colX.amt)
     };
 
     // 에듀파인 품목내역 표준 가시 셀 순서 폴백: [0:체크박스, 1:상태(N), 2:순번(1), 3:*내용, 4:규격, 5:수량, 6:단위, 7:예상단가, 8:*예상금액]
-    if (!map.name || !map.qty || !map.price) {
-      if (visibleCells.length >= 8) {
+    if (!map.name || !map.qty || !map.price || !map.amt) {
+      if (visibleCells.length >= 9) {
         map = {
           name: map.name || visibleCells[3],
           spec: map.spec || visibleCells[4],
           qty: map.qty || visibleCells[5],
           unit: null,
-          price: map.price || visibleCells[7]
+          price: map.price || visibleCells[7],
+          amt: map.amt || visibleCells[8]
+        };
+      } else if (visibleCells.length >= 8) {
+        map = {
+          name: map.name || visibleCells[3],
+          spec: map.spec || visibleCells[4],
+          qty: map.qty || visibleCells[5],
+          unit: null,
+          price: map.price || visibleCells[7],
+          amt: map.amt || visibleCells[7].nextElementSibling || visibleCells[visibleCells.length - 1]
         };
       } else if (visibleCells.length === 7) {
         map = {
@@ -2274,7 +2331,8 @@ async function injectedFiller(title, body, items) {
           spec: map.spec || visibleCells[3],
           qty: map.qty || visibleCells[4],
           unit: null,
-          price: map.price || visibleCells[6]
+          price: map.price || visibleCells[6],
+          amt: map.amt || visibleCells[6].nextElementSibling || visibleCells[visibleCells.length - 1]
         };
       }
     }
@@ -2482,16 +2540,33 @@ async function injectedFiller(title, body, items) {
     }
     if (nxDs && targetColId && typeof nxDs.setColumn === 'function') {
       try {
-        const syncVal = (fieldKey === 'qty' || fieldKey === 'price') ? Number(finalVal) : finalVal;
+        const syncVal = (fieldKey === 'qty' || fieldKey === 'price' || fieldKey === 'amt') ? Number(finalVal) : finalVal;
         nxDs.setColumn(rowIndex, targetColId, syncVal);
       } catch(e) {}
     }
 
     // 6. 셀 DOM 텍스트 노드 직접 업데이트 (화면 새로고침 없이 즉시 표시 유지)
     try {
+      const isNumericField = (fieldKey === 'qty' || fieldKey === 'price' || fieldKey === 'amt');
       const textDiv = cell.querySelector('[id*=":text"], div') || cell;
       if (textDiv && !textDiv.querySelector('input')) {
-        textDiv.textContent = (fieldKey === 'price') ? Number(finalVal).toLocaleString() : String(finalVal);
+        textDiv.textContent = (fieldKey === 'price' || fieldKey === 'amt') ? Number(finalVal).toLocaleString() : String(finalVal);
+      }
+      // ★ 숫자 컬럼(수량, 예상단가, 예상금액)은 에듀파인 표준 규격에 맞게 확실한 오른쪽 정렬(text-align: right) 적용!
+      if (isNumericField) {
+        cell.style.textAlign = 'right';
+        if (textDiv) {
+          textDiv.style.textAlign = 'right';
+          textDiv.style.paddingRight = '6px';
+          textDiv.style.boxSizing = 'border-box';
+          textDiv.style.width = '100%';
+        }
+        const innerNodes = cell.querySelectorAll('div, span');
+        innerNodes.forEach(n => {
+          if (!n.querySelector('input')) {
+            n.style.textAlign = 'right';
+          }
+        });
       }
     } catch(e) {}
 
@@ -2567,7 +2642,7 @@ async function injectedFiller(title, body, items) {
         }
         const startRowIndex = existingFilledCount;
 
-        const liveBanner = createOrUpdateBanner(targetDoc, '🚀 [에듀파인 품의 도우미 v2.5.1] 품목 표 자동 행추가 및 셀 타이핑을 시작합니다...');
+        const liveBanner = createOrUpdateBanner(targetDoc, '🚀 [에듀파인 품의 도우미 v2.5.2] 품목 표 자동 행추가 및 셀 타이핑을 시작합니다...');
 
         for (let i = 0; i < items.length; i++) {
           const curItem = items[i];
@@ -2624,10 +2699,18 @@ async function injectedFiller(title, body, items) {
                 }
                 if (colMap?.name?.colId) nxDs.setColumn(targetIndex, colMap.name.colId, curItem.name || '');
                 if (colMap?.spec?.colId && cleanSpecVal && cleanSpecVal !== '-') nxDs.setColumn(targetIndex, colMap.spec.colId, cleanSpecVal);
-                if (colMap?.qty?.colId) nxDs.setColumn(targetIndex, colMap.qty.colId, qtyNum);
+                
+                const qtyCols = (colMap?.allQtyColIds && colMap.allQtyColIds.length > 0) ? colMap.allQtyColIds : (colMap?.qty?.colId ? [colMap.qty.colId] : ['REQ_QTY', 'QTY']);
+                for (const qId of qtyCols) { try { nxDs.setColumn(targetIndex, qId, qtyNum); } catch(e) {} }
+
                 // ★ 사용자 요청: 단위(unit)는 선택 안 되게 유지 (컬럼 수정 안 함)
-                if (colMap?.price?.colId) nxDs.setColumn(targetIndex, colMap.price.colId, priceNum);
-                if (colMap?.amt?.colId) nxDs.setColumn(targetIndex, colMap.amt.colId, qtyNum * priceNum);
+                const priceCols = (colMap?.allPriceColIds && colMap.allPriceColIds.length > 0) ? colMap.allPriceColIds : (colMap?.price?.colId ? [colMap.price.colId] : ['REQ_UPRC', 'EXPCT_UPRC', 'UNIT_PRICE']);
+                for (const pId of priceCols) { try { nxDs.setColumn(targetIndex, pId, priceNum); } catch(e) {} }
+
+                const totalAmt = qtyNum * priceNum;
+                const amtCols = (colMap?.allAmtColIds && colMap.allAmtColIds.length > 0) ? colMap.allAmtColIds : (colMap?.amt?.colId ? [colMap.amt.colId] : ['REQ_AMT', 'EXPCT_AMT', 'ESTM_AMT', 'PRDLST_AMT']);
+                for (const aId of amtCols) { try { nxDs.setColumn(targetIndex, aId, totalAmt); } catch(e) {} }
+
                 if (colMap?.budget?.colId) nxDs.setColumn(targetIndex, colMap.budget.colId, curItemBudget);
                 itemsInjectedCount++;
                 continue;
@@ -2652,10 +2735,18 @@ async function injectedFiller(title, body, items) {
               }
               if (colMap?.name?.colId) nxDs.setColumn(targetIndex, colMap.name.colId, curItem.name || '');
               if (colMap?.spec?.colId && cleanSpecVal && cleanSpecVal !== '-') nxDs.setColumn(targetIndex, colMap.spec.colId, cleanSpecVal);
-              if (colMap?.qty?.colId) nxDs.setColumn(targetIndex, colMap.qty.colId, qtyNum);
+              
+              const qtyCols = (colMap?.allQtyColIds && colMap.allQtyColIds.length > 0) ? colMap.allQtyColIds : (colMap?.qty?.colId ? [colMap.qty.colId] : ['REQ_QTY', 'QTY']);
+              for (const qId of qtyCols) { try { nxDs.setColumn(targetIndex, qId, qtyNum); } catch(e) {} }
+
               // ★ 단위 컬럼은 절대 건드리지 않음
-              if (colMap?.price?.colId) nxDs.setColumn(targetIndex, colMap.price.colId, priceNum);
-              if (colMap?.amt?.colId) nxDs.setColumn(targetIndex, colMap.amt.colId, qtyNum * priceNum);
+              const priceCols = (colMap?.allPriceColIds && colMap.allPriceColIds.length > 0) ? colMap.allPriceColIds : (colMap?.price?.colId ? [colMap.price.colId] : ['REQ_UPRC', 'EXPCT_UPRC', 'UNIT_PRICE']);
+              for (const pId of priceCols) { try { nxDs.setColumn(targetIndex, pId, priceNum); } catch(e) {} }
+
+              const totalAmt = qtyNum * priceNum;
+              const amtCols = (colMap?.allAmtColIds && colMap.allAmtColIds.length > 0) ? colMap.allAmtColIds : (colMap?.amt?.colId ? [colMap.amt.colId] : ['REQ_AMT', 'EXPCT_AMT', 'ESTM_AMT', 'PRDLST_AMT']);
+              for (const aId of amtCols) { try { nxDs.setColumn(targetIndex, aId, totalAmt); } catch(e) {} }
+
               if (colMap?.budget?.colId) nxDs.setColumn(targetIndex, colMap.budget.colId, curItemBudget);
             } catch(e) {}
           }
@@ -2677,19 +2768,40 @@ async function injectedFiller(title, body, items) {
             await typeIntoCell(cellMap.price, priceNum, 'price', '예상단가', gridInfo, targetIndex);
           }
 
-          // 예상금액 셀도 DOM에 직접 표시 및 Dataset 산출액 확정
+          // ★ 예상금액(amt) 셀도 DOM에 직접 표시 및 Dataset 산출액 확정 (필수 컬럼 누락 방어!)
+          const totalAmtNum = qtyNum * priceNum;
           try {
-            if (colMap?.amt?.colId && nxDs && typeof nxDs.setColumn === 'function') {
-              nxDs.setColumn(targetIndex, colMap.amt.colId, qtyNum * priceNum);
+            if (nxDs && typeof nxDs.setColumn === 'function') {
+              const amtCols = (colMap?.allAmtColIds && colMap.allAmtColIds.length > 0)
+                ? colMap.allAmtColIds
+                : (colMap?.amt?.colId ? [colMap.amt.colId] : ['REQ_AMT', 'EXPCT_AMT', 'ESTM_AMT', 'PRDLST_AMT']);
+              for (const aId of amtCols) {
+                try { nxDs.setColumn(targetIndex, aId, totalAmtNum); } catch(e) {}
+              }
             }
-            const rowCells = Array.from(targetRow.querySelectorAll('[id*=".cell_"]')).filter(c => /\.cell_\d+_\d+$/.test(c.id || ''));
-            rowCells.sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
-            const amtCell = rowCells[rowCells.length - 1];
+            const amtCell = cellMap.amt || (cellMap.price ? cellMap.price.nextElementSibling : null);
             if (amtCell) {
               const amtTxt = amtCell.querySelector('[id*=":text"], div') || amtCell;
               if (amtTxt && !amtTxt.querySelector('input')) {
-                amtTxt.textContent = (qtyNum * priceNum).toLocaleString();
+                amtTxt.textContent = totalAmtNum.toLocaleString();
               }
+              amtCell.style.textAlign = 'right';
+              if (amtTxt) {
+                amtTxt.style.textAlign = 'right';
+                amtTxt.style.paddingRight = '6px';
+                amtTxt.style.boxSizing = 'border-box';
+                amtTxt.style.width = '100%';
+              }
+              amtCell.querySelectorAll('div, span').forEach(n => {
+                if (!n.querySelector('input')) n.style.textAlign = 'right';
+              });
+              try {
+                const nxAmtCtrl = getNexacroControlFromDom(amtCell);
+                if (nxAmtCtrl) {
+                  if (typeof nxAmtCtrl.set_value === 'function') nxAmtCtrl.set_value(totalAmtNum);
+                  if (typeof nxAmtCtrl.set_text === 'function') nxAmtCtrl.set_text(totalAmtNum.toLocaleString());
+                }
+              } catch(e) {}
             }
           } catch(e) {}
 
@@ -2707,6 +2819,9 @@ async function injectedFiller(title, body, items) {
         if (gridInfo.nxDs && typeof gridInfo.nxDs.setColumn === 'function' && gridInfo.colMap) {
           try {
             const colMap = gridInfo.colMap;
+            const amtCols = (colMap.allAmtColIds && colMap.allAmtColIds.length > 0)
+              ? colMap.allAmtColIds
+              : (colMap.amt?.colId ? [colMap.amt.colId] : ['REQ_AMT', 'EXPCT_AMT', 'ESTM_AMT', 'PRDLST_AMT']);
             for (let k = 0; k < items.length; k++) {
               const targetIdx = startRowIndex + k;
               const itm = items[k];
@@ -2717,13 +2832,20 @@ async function injectedFiller(title, body, items) {
               if (colMap.spec?.colId && sp && sp !== '-') gridInfo.nxDs.setColumn(targetIdx, colMap.spec.colId, sp);
               if (colMap.qty?.colId) gridInfo.nxDs.setColumn(targetIdx, colMap.qty.colId, q);
               if (colMap.price?.colId) gridInfo.nxDs.setColumn(targetIdx, colMap.price.colId, p);
-              if (colMap.amt?.colId) gridInfo.nxDs.setColumn(targetIdx, colMap.amt.colId, q * p);
+              for (const aId of amtCols) {
+                try { gridInfo.nxDs.setColumn(targetIdx, aId, q * p); } catch(e) {}
+              }
             }
           } catch(e) {}
         }
 
         // ★ 마지막에 불필요하게 자동 추가된 빈 행 자동 감지 및 삭제
         await cleanupTrailingEmptyRows(targetDoc, gridInfo, addRowBtnInfo, startRowIndex + items.length);
+
+        // ★ 입력 완료 후 활성 포커스 해제 (에디터 잔류 및 파란색 테두리 방지)
+        if (targetDoc.activeElement && typeof targetDoc.activeElement.blur === 'function') {
+          try { targetDoc.activeElement.blur(); } catch(e) {}
+        }
 
         if (gridInfo.nxGrid) {
           try {
@@ -3598,7 +3720,7 @@ async function executeInjection({
       return;
     }
 
-    const currentVer = chrome.runtime.getManifest()?.version || "2.5.1";
+    const currentVer = chrome.runtime.getManifest()?.version || "2.5.2";
     let msg = `[에듀파인 화면 입력 완료! (v${currentVer})]\n\n`;
 
     if (injectDraft) {
@@ -3759,7 +3881,7 @@ async function checkForAppUpdates() {
   }
 
   try {
-    const curVer = chrome.runtime.getManifest()?.version || "2.5.1";
+    const curVer = chrome.runtime.getManifest()?.version || "2.5.2";
     const { lastUpdateCheckTime, latestRemoteVer, lastDismissedUpdateVer } = await chrome.storage.local.get([
       "lastUpdateCheckTime", "latestRemoteVer", "lastDismissedUpdateVer"
     ]);
