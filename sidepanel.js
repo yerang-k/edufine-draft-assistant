@@ -1672,47 +1672,34 @@ async function injectedFiller(title, body, items) {
         return (r.top >= (budgetTop - 25) && r.top < itemTop - 10);
       });
 
-      // ★ 핵심 규칙 1: 예산 그리드에 1개 이상의 데이터 행이 발견되면 -> 예산이 명백히 선택된 상태! 무조건 즉시 통과!
-      if (budgetRows.length > 0) {
-        return { selected: true, isProposalScreen: true, budgetRows: budgetRows, reason: `ok_budget_rows:${budgetRows.length}` };
-      }
-
-      // 2) 예산내역 영역에 "조회된 내역이 없습니다" / "조회 결과가 없습니다" 등 명백한 빈 그리드 안내 문구 탐색
-      let emptyMsgFound = false;
-      let emptyMsgText = '';
-      for (const el of allNodes) {
-        const t = (el.textContent || '').trim().replace(/\s+/g, '');
-        const r = el.getBoundingClientRect();
-        // 예산 영역(itemTop 위쪽) 내부의 노드인지 확인
-        if (r.top >= (budgetTop - 25) && r.top < itemTop) {
-          if (
-            t.includes('조회된내역이없습니다') ||
-            t.includes('조회결과가없습니다') ||
-            t.includes('조회된데이터가없습니다') ||
-            t.includes('조회내역이없습니다') ||
-            (t.includes('조회') && t.includes('내역이없습니다')) ||
-            (t.includes('조회') && t.includes('결과가없습니다')) ||
-            (t.includes('조회') && t.includes('데이터가없습니다'))
-          ) {
-            emptyMsgFound = true;
-            emptyMsgText = t;
-            break;
+      // 2) Nexacro Dataset 기반 검증 병행
+      let dsRowCount = null;
+      try {
+        const budgetGridNode = doc.querySelector('[id*="divAuth1"] [id*="grd"]');
+        if (budgetGridNode) {
+          const bGridId = budgetGridNode.id.split('.head.')[0].split('.body.')[0].split(':')[0];
+          const bNxGrid = resolveNexacroComponent(win, bGridId, budgetGridNode);
+          if (bNxGrid) {
+            const bNxDs = resolveNexacroDataset(bNxGrid, win);
+            if (bNxDs && typeof bNxDs.getRowCount === 'function') {
+              dsRowCount = bNxDs.getRowCount();
+            }
           }
         }
-      }
+      } catch(e) {}
 
-      // ★ 핵심 규칙 2: 예산 데이터 행이 0개이고 빈 안내 문구가 명시적으로 떠있는 경우에만 '미선택' 판정!
-      if (budgetRows.length === 0 && emptyMsgFound) {
+      // ★ 핵심 규칙: 예산 행이 발견되거나 Dataset의 행 수가 1 이상이면 '선택됨', 아니면 무조건 '미선택' 판정!
+      const isBudgetPresent = (dsRowCount !== null && dsRowCount > 0) || (budgetRows.length > 0);
+      if (isBudgetPresent) {
+        return { selected: true, isProposalScreen: true, budgetRows: budgetRows, reason: `ok_budget:${dsRowCount ?? budgetRows.length}` };
+      } else {
         return {
           selected: false,
           isProposalScreen: true,
           budgetRows: [],
-          reason: `empty_budget_grid:${emptyMsgText}`
+          reason: dsRowCount === 0 ? 'empty_budget_ds' : 'no_budget_rows'
         };
       }
-
-      // 그 외에는 안전하게 통과!
-      return { selected: true, isProposalScreen: true, budgetRows: budgetRows, reason: 'ok_default' };
     } catch(e) {
       return { selected: true, isProposalScreen: false, budgetRows: [], reason: `error:${e.message}` };
     }
@@ -2519,6 +2506,10 @@ async function injectedFiller(title, body, items) {
 
   // 3-7. 품목 리스트 자동화 실행 오케스트레이터 (Nexacro 완벽 대응 v1.9.0)
   if (items && items.length > 0) {
+    // ★ 예산 미선택 시 품목 입력 차단
+    if (budgetCheck.isProposalScreen && !budgetCheck.selected) {
+      return { titleFound, bodyFound, itemsInjectedCount: 0, diagGridFound: true, diagRowCount: 0, isProposalScreen: true, budgetNotSelected: true, diagDetail: `예산미선택(${budgetCheck.reason})` };
+    }
     try {
       let targetDoc = activeDoc;
       let addRowBtnInfo = findAddRowButton(activeDoc);
@@ -2576,7 +2567,7 @@ async function injectedFiller(title, body, items) {
         }
         const startRowIndex = existingFilledCount;
 
-        const liveBanner = createOrUpdateBanner(targetDoc, '🚀 [에듀파인 품의 도우미 v2.5.0] 품목 표 자동 행추가 및 셀 타이핑을 시작합니다...');
+        const liveBanner = createOrUpdateBanner(targetDoc, '🚀 [에듀파인 품의 도우미 v2.5.1] 품목 표 자동 행추가 및 셀 타이핑을 시작합니다...');
 
         for (let i = 0; i < items.length; i++) {
           const curItem = items[i];
@@ -3477,6 +3468,94 @@ async function executeInjection({
     return;
   }
 
+  // ★ 사용자 요청: 예산 선택을 안 하면 품목 입력 자체가 아예 안 되게 사전 차단!
+  if (injectItems) {
+    try {
+      const preCheckResults = await chrome.scripting.executeScript({
+        target: { tabId: activeTab.id, allFrames: true },
+        world: 'MAIN',
+        func: () => {
+          try {
+            const docs = [document];
+            try {
+              const iframes = Array.from(document.querySelectorAll('iframe, frame'));
+              for (const f of iframes) {
+                const d = f.contentDocument || f.contentWindow?.document;
+                if (d && !docs.includes(d)) docs.push(d);
+              }
+            } catch(e) {}
+
+            for (const doc of docs) {
+              const addRowBtn = Array.from(doc.querySelectorAll('*')).find(el => {
+                const t = (el.textContent || el.value || el.title || '').trim().replace(/\s+/g, '');
+                return t.includes('행추가') && t.length <= 10 && el.getBoundingClientRect().width >= 20;
+              });
+              const itemGridEl = doc.querySelector('[id*="grdPrdlstDtl"]');
+              const hasProposalText = doc.body && (doc.body.innerText.includes('품의등록') || doc.body.innerText.includes('품목내역') || doc.body.innerText.includes('지출품의'));
+
+              if (addRowBtn || itemGridEl || hasProposalText) {
+                const itemTop = (addRowBtn || itemGridEl)?.getBoundingClientRect().top || 99999;
+                const budgetRows = Array.from(doc.querySelectorAll('[id*=".body.gridrow_"]')).filter(el => {
+                  if (!/\.body\.gridrow_\d+$/.test(el.id || '')) return false;
+                  if (el.id.includes('grdPrdlstDtl') || el.id.includes('divAuth2')) return false;
+                  const r = el.getBoundingClientRect();
+                  return r.width > 100 && r.height > 10 && r.top < itemTop - 10;
+                });
+
+                let dsCount = null;
+                try {
+                  const bGrid = doc.querySelector('[id*="divAuth1"] [id*="grd"]');
+                  if (bGrid && window.nexacro) {
+                    const bId = bGrid.id.split('.head.')[0].split('.body.')[0].split(':')[0];
+                    let comp = window;
+                    bId.split('.').forEach(p => { if (comp) comp = comp[p]; });
+                    if (comp?._binddataset) {
+                      dsCount = comp._binddataset.getRowCount();
+                    }
+                  }
+                } catch(e) {}
+
+                const hasBudget = (dsCount !== null && dsCount > 0) || (budgetRows.length > 0);
+                return { isProposalScreen: true, hasBudget: hasBudget, budgetRowCount: budgetRows.length, dsCount: dsCount };
+              }
+            }
+            return { isProposalScreen: false };
+          } catch(err) {
+            return { isProposalScreen: false, error: err.message };
+          }
+        }
+      });
+
+      let foundProposalScreen = false;
+      let anyBudgetSelected = false;
+
+      if (preCheckResults && preCheckResults.length > 0) {
+        for (const r of preCheckResults) {
+          if (r.result?.isProposalScreen) {
+            foundProposalScreen = true;
+            if (r.result?.hasBudget) {
+              anyBudgetSelected = true;
+              break;
+            }
+          }
+        }
+      }
+
+      if (foundProposalScreen && !anyBudgetSelected) {
+        alert(
+          "⚠️ [예산 먼저 선택 안내]\n\n" +
+          "에듀파인 품의등록 화면에 '예산'이 아직 선택(조회)되지 않았습니다!\n\n" +
+          "에듀파인 시스템 규정상 예산이 먼저 지정되어야 품목 행을 추가하고 입력할 수 있습니다.\n" +
+          "예산이 없는 상태에서 품목을 입력하면, 나중에 예산을 선택할 때 기껏 입력한 품목이 모두 초기화(삭제)되므로 품목 입력을 시작하지 않았습니다.\n\n" +
+          "👉 에듀파인 화면에서 [예산선택] 버튼을 눌러 예산을 먼저 선택하신 후, 다시 [품목 즉시 입력] 버튼을 눌러주세요!"
+        );
+        return;
+      }
+    } catch(preCheckErr) {
+      console.warn("예산 사전 검사 건너뜀:", preCheckErr);
+    }
+  }
+
   try {
     const results = await chrome.scripting.executeScript({
       target: { tabId: activeTab.id, allFrames: true },
@@ -3519,7 +3598,7 @@ async function executeInjection({
       return;
     }
 
-    const currentVer = chrome.runtime.getManifest()?.version || "2.5.0";
+    const currentVer = chrome.runtime.getManifest()?.version || "2.5.1";
     let msg = `[에듀파인 화면 입력 완료! (v${currentVer})]\n\n`;
 
     if (injectDraft) {
@@ -3680,7 +3759,7 @@ async function checkForAppUpdates() {
   }
 
   try {
-    const curVer = chrome.runtime.getManifest()?.version || "2.5.0";
+    const curVer = chrome.runtime.getManifest()?.version || "2.5.1";
     const { lastUpdateCheckTime, latestRemoteVer, lastDismissedUpdateVer } = await chrome.storage.local.get([
       "lastUpdateCheckTime", "latestRemoteVer", "lastDismissedUpdateVer"
     ]);
