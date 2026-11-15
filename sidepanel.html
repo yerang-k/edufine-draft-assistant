@@ -16,7 +16,7 @@
         <img src="icon48.png" alt="앱 아이콘" />
       </div>
       <h1 class="brand-title">에듀파인 품의 도우미</h1>
-      <span id="appVersionBadge" class="badge-version">v2.5.5</span>
+      <span id="appVersionBadge" class="badge-version">v2.6.0</span>
     </div>
     <button id="btnSettings" class="btn-icon" title="API 키 및 관련근거 설정">
       <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
@@ -153,7 +153,12 @@
             <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="8" y1="12" x2="16" y2="12"></line><line x1="12" y1="8" x2="12" y2="16"></line></svg>
             <span>구매 수량 빠른 조절</span>
           </span>
-          <span id="quickTotalBadge" class="quick-total-badge">총 0원</span>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <button id="btnQuickRoundUp100" type="button" class="btn-secondary" style="padding:2px 7px; font-size:11px; font-weight:700; color:var(--accent); border-color:var(--accent-border); height:22px; display:inline-flex; align-items:center; gap:3px;" title="모든 품목의 10원 단위 단가를 100원 단위로 올림(절상)합니다">
+              <span>100원 올림 🔼</span>
+            </button>
+            <span id="quickTotalBadge" class="quick-total-badge">총 0원</span>
+          </div>
         </div>
         <div id="quickQtyList" style="display:flex; flex-direction:column; gap:6px;"></div>
       </div>
@@ -206,10 +211,15 @@
           </table>
         </div>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
-          <button id="btnManualAddRow" class="btn-secondary" style="padding:4px 10px; font-size:11px;">
-            <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            <span>품목 1행 직접 추가</span>
-          </button>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <button id="btnManualAddRow" class="btn-secondary" style="padding:4px 10px; font-size:11px;">
+              <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              <span>품목 1행 직접 추가</span>
+            </button>
+            <button id="btnItemsRoundUp100" class="btn-secondary" style="padding:4px 10px; font-size:11px; font-weight:700; color:var(--accent); border-color:var(--accent-border);" title="모든 품목의 10원 단위 단가를 100원 단위로 올림(절상)합니다">
+              <span>단가 100원 올림 🔼</span>
+            </button>
+          </div>
           <div style="text-align:right; font-weight:700; font-size:12px; color:var(--text-2);">
             총 소요예산: <span id="totalAmountText" style="color:var(--accent); font-size:13px; font-weight:800;">0원</span>
           </div>
@@ -304,7 +314,12 @@
             <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="8" y1="12" x2="16" y2="12"></line><line x1="12" y1="8" x2="12" y2="16"></line></svg>
             <span><strong id="multiCurrentBudgetLabel">1번 예산</strong> 구매 수량 빠른 조절 (<span id="multiCurrentItemCount">0</span>건)</span>
           </span>
-          <span id="multiCurrentTotal" class="quick-total-badge">총 0원</span>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <button id="btnMultiRoundUp100" type="button" class="btn-secondary" style="padding:2px 7px; font-size:11px; font-weight:700; color:var(--accent); border-color:var(--accent-border); height:22px; display:inline-flex; align-items:center; gap:3px;" title="현재 예산 품목의 10원 단위 단가를 100원 단위로 올림합니다">
+              <span>100원 올림 🔼</span>
+            </button>
+            <span id="multiCurrentTotal" class="quick-total-badge">총 0원</span>
+          </div>
         </div>
         <!-- 수량 및 내역 조절 리스트 -->
         <div id="multiCurrentQtyList" style="display:flex; flex-direction:column; gap:6px;"></div>
@@ -408,7 +423,7 @@
           <svg class="svg-icon icon-sm" style="color:var(--accent);" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
           <h3 style="margin:0; font-size:14px; font-weight:700; color:var(--text);">Gemini API 설정</h3>
         </div>
-        <span class="badge-version" id="settingsVersion">v2.5.5</span>
+        <span class="badge-version" id="settingsVersion">v2.6.0</span>
       </div>
       <p style="font-size:11.5px; color:var(--text-3); margin-bottom:10px;">
         Google AI Studio에서 무료로 발급받은 Gemini API Key를 입력해주세요.

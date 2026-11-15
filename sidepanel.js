@@ -200,6 +200,9 @@ const btnAnalyze = document.getElementById("btnAnalyze");
 const btnAnalyzeText = document.getElementById("btnAnalyzeText");
 const btnAppendAnalyze = document.getElementById("btnAppendAnalyze");
 const btnManualAddRow = document.getElementById("btnManualAddRow");
+const btnQuickRoundUp100 = document.getElementById("btnQuickRoundUp100");
+const btnItemsRoundUp100 = document.getElementById("btnItemsRoundUp100");
+const btnMultiRoundUp100 = document.getElementById("btnMultiRoundUp100");
 const statusMsg = document.getElementById("statusMsg");
 
 const resultCard = document.getElementById("resultCard");
@@ -1211,6 +1214,47 @@ if (btnManualAddRow) {
     syncQuantityAndBudget();
     updateAnalyzeButtonState();
   });
+}
+
+// 10원 단위 단가를 100원 단위로 일괄 올림(절상)
+function roundUpAllUnitPrices() {
+  if (!parsedItems || parsedItems.length === 0) return 0;
+  let changedCount = 0;
+  parsedItems.forEach(item => {
+    const orig = Math.max(0, parseInt(item.unitPrice) || 0);
+    const rounded = Math.ceil(orig / 100) * 100;
+    if (rounded !== orig) {
+      item.unitPrice = rounded;
+      item.totalPrice = (item.qty || 1) * rounded;
+      changedCount++;
+    }
+  });
+  if (changedCount > 0) {
+    renderItemsUI();
+    syncQuantityAndBudget();
+  }
+  return changedCount;
+}
+
+function handleRoundUpFeedback(btn) {
+  if (!btn) return;
+  const count = roundUpAllUnitPrices();
+  const origHtml = btn.innerHTML;
+  if (count > 0) {
+    btn.innerHTML = `<span>✅ ${count}건 올림 완료!</span>`;
+  } else {
+    btn.innerHTML = `<span>이미 100원 단위입니다</span>`;
+  }
+  setTimeout(() => {
+    btn.innerHTML = origHtml;
+  }, 1600);
+}
+
+if (btnQuickRoundUp100) {
+  btnQuickRoundUp100.addEventListener("click", () => handleRoundUpFeedback(btnQuickRoundUp100));
+}
+if (btnItemsRoundUp100) {
+  btnItemsRoundUp100.addEventListener("click", () => handleRoundUpFeedback(btnItemsRoundUp100));
 }
 
 // 결과 렌더링 및 기안문 조립
@@ -3423,6 +3467,42 @@ function renderMultiCumulativeSummary() {
   if (multiGrandSummaryText) {
     multiGrandSummaryText.textContent = `총 ${grandCount}건 / 금 ${grandTotal.toLocaleString()}원`;
   }
+}
+
+// 다중 예산 모드 현재 예산 품목 100원 단위 일괄 올림(절상)
+function roundUpMultiCurrentUnitPrices() {
+  if (!multiCurrentItems || multiCurrentItems.length === 0) return 0;
+  let changedCount = 0;
+  multiCurrentItems.forEach(item => {
+    const orig = Math.max(0, parseInt(item.unitPrice) || 0);
+    const rounded = Math.ceil(orig / 100) * 100;
+    if (rounded !== orig) {
+      item.unitPrice = rounded;
+      item.totalPrice = (item.qty || 1) * rounded;
+      changedCount++;
+    }
+  });
+  if (changedCount > 0) {
+    renderMultiCurrentItems();
+    renderMultiCumulativeSummary();
+    generateMultiDraftText();
+  }
+  return changedCount;
+}
+
+if (btnMultiRoundUp100) {
+  btnMultiRoundUp100.addEventListener("click", () => {
+    const count = roundUpMultiCurrentUnitPrices();
+    const origHtml = btnMultiRoundUp100.innerHTML;
+    if (count > 0) {
+      btnMultiRoundUp100.innerHTML = `<span>✅ ${count}건 올림 완료!</span>`;
+    } else {
+      btnMultiRoundUp100.innerHTML = `<span>이미 100원 단위입니다</span>`;
+    }
+    setTimeout(() => {
+      btnMultiRoundUp100.innerHTML = origHtml;
+    }, 1600);
+  });
 }
 
 // 에듀파인 표에 현재 예산 품목 즉시 입력 버튼
