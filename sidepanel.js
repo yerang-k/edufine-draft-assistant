@@ -3991,12 +3991,13 @@ async function checkForAppUpdates() {
     btnOpenUpdateGuide.addEventListener("click", () => {
       const ver = updateVerBadge?.textContent?.trim() || "최신";
       alert(
-        `🚀 [에듀파인 품의 도우미 ${ver} 원클릭 업데이트 방법]\n\n` +
-        `1. 다운로드받으셨던 [edufine-draft-assistant] 폴더를 엽니다.\n` +
-        `2. 폴더 안에 있는 [업데이트.bat] 파일을 더블클릭합니다.\n` +
-        `3. 검은 창에서 다운로드 및 파일 교체가 자동으로 진행됩니다.\n` +
-        `4. 완료 후 브라우저 확장 관리창(chrome://extensions)에서 [새로고침(🔄)]만 누르시면 최신 버전으로 즉시 반영됩니다!\n\n` +
-        `💡 [확인]을 누르시면 깃허브 최신 릴리즈 페이지로 이동합니다.`
+        `🎉 [에듀파인 품의 도우미 ${ver} 새 버전 출시 안내]\n\n` +
+        `✨ 크롬 웹 스토어를 통해 설치하신 경우:\n` +
+        `사용자가 직접 조치할 필요 없이, 크롬 브라우저가 백그라운드에서 자동으로 최신 버전으로 자동 업데이트합니다!\n\n` +
+        `✨ 폴더(개발자 모드)로 설치하여 사용 중이신 경우:\n` +
+        `1) 크롬 웹 스토어에서 정식 설치하시면 앞으로 항상 자동 업데이트를 받으실 수 있습니다.\n` +
+        `2) 또는 기존 폴더의 [업데이트.bat] 실행 후 chrome://extensions 에서 [새로고침(🔄)]을 누르셔도 됩니다.\n\n` +
+        `💡 [확인]을 누르시면 업데이트 상세 내역 페이지로 이동합니다.`
       );
       if (chrome.tabs && chrome.tabs.create) {
         chrome.tabs.create({ url: "https://github.com/yerang-k/edufine-draft-assistant/releases/latest" });
