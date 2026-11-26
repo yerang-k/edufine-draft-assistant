@@ -16,7 +16,7 @@
         <img src="icon48.png" alt="앱 아이콘" />
       </div>
       <h1 class="brand-title">에듀파인 품의 도우미</h1>
-      <span id="appVersionBadge" class="badge-version">v2.6.0</span>
+      <span id="appVersionBadge" class="badge-version">v2.6.1</span>
     </div>
     <button id="btnSettings" class="btn-icon" title="API 키 및 관련근거 설정">
       <svg class="svg-icon icon-sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
@@ -29,7 +29,7 @@
     <div style="display:flex; align-items:center; gap:5px; flex:1; min-width:0;">
       <span style="font-size:14px; flex-shrink:0;">📢</span>
       <span style="font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-        새 버전(<span id="updateVerBadge" style="color:var(--accent);">v2.6.0</span>) 출시!
+        새 버전(<span id="updateVerBadge" style="color:var(--accent);">v2.6.1</span>) 출시!
       </span>
     </div>
     <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
@@ -198,13 +198,15 @@
           <table id="itemsTable">
             <thead>
               <tr>
-                <th style="width:32px;">순번</th>
+                <th style="width:28px;">순번</th>
+                <th style="width:62px;">예산</th>
                 <th>내용(품목명)</th>
                 <th>규격</th>
-                <th>수량</th>
-                <th>단위</th>
+                <th style="width:52px;">수량</th>
+                <th style="width:38px;">단위</th>
                 <th>단가</th>
                 <th>금액</th>
+                <th style="width:34px;">삭제</th>
               </tr>
             </thead>
             <tbody id="itemsTableBody"></tbody>
@@ -423,7 +425,7 @@
           <svg class="svg-icon icon-sm" style="color:var(--accent);" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
           <h3 style="margin:0; font-size:14px; font-weight:700; color:var(--text);">Gemini API 설정</h3>
         </div>
-        <span class="badge-version" id="settingsVersion">v2.6.0</span>
+        <span class="badge-version" id="settingsVersion">v2.6.1</span>
       </div>
       <p style="font-size:11.5px; color:var(--text-3); margin-bottom:10px;">
         Google AI Studio에서 무료로 발급받은 Gemini API Key를 입력해주세요.
@@ -459,6 +461,65 @@
         <div style="display:flex; gap:6px;">
           <button id="btnCancelSettings" class="btn-secondary" style="padding:6px 12px;">닫기</button>
           <button id="btnSaveSettings" class="btn-primary" style="padding:6px 14px; width:auto;">저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 품목 상세 수정 모달 -->
+  <div id="itemEditModal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
+    <div class="card" style="width:90%; max-width:340px; background:var(--card); box-shadow:0 8px 24px rgba(0,0,0,0.25); border:1px solid var(--line); border-radius:10px; padding:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 style="margin:0; font-size:14px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:5px;">
+          <span>✏️</span>
+          <span>품목 상세 수정</span>
+        </h3>
+        <button id="btnCloseItemEditModal" type="button" style="background:none; border:none; color:var(--text-3); font-size:16px; cursor:pointer; padding:0 4px;">✕</button>
+      </div>
+
+      <div class="form-group" style="margin-bottom:8px;">
+        <label for="modalItemName" style="font-size:11px; font-weight:600;">품목명 (내용)</label>
+        <input type="text" id="modalItemName" class="form-control" style="font-size:12px; padding:5px 8px;" />
+      </div>
+
+      <div style="display:flex; gap:8px; margin-bottom:8px;">
+        <div class="form-group" style="flex:1; margin-bottom:0;">
+          <label for="modalItemSpec" style="font-size:11px; font-weight:600;">규격</label>
+          <input type="text" id="modalItemSpec" class="form-control" style="font-size:12px; padding:5px 8px;" placeholder="기본 비워둠" />
+        </div>
+        <div class="form-group" style="width:88px; margin-bottom:0;">
+          <label for="modalItemBudget" style="font-size:11px; font-weight:600;">예산 지정</label>
+          <select id="modalItemBudget" class="form-control" style="font-size:11px; padding:4px 6px;">
+            <option value="1">1번 예산</option>
+            <option value="2">2번 예산</option>
+            <option value="3">3번 예산</option>
+            <option value="4">4번 예산</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:8px; margin-bottom:14px;">
+        <div class="form-group" style="width:70px; margin-bottom:0;">
+          <label for="modalItemQty" style="font-size:11px; font-weight:600;">수량</label>
+          <input type="number" id="modalItemQty" class="form-control" min="1" style="font-size:12px; padding:5px 8px; text-align:center;" />
+        </div>
+        <div class="form-group" style="width:60px; margin-bottom:0;">
+          <label for="modalItemUnit" style="font-size:11px; font-weight:600;">단위</label>
+          <input type="text" id="modalItemUnit" class="form-control" style="font-size:12px; padding:5px 8px; text-align:center;" />
+        </div>
+        <div class="form-group" style="flex:1; margin-bottom:0;">
+          <label for="modalItemUnitPrice" style="font-size:11px; font-weight:600;">단가 (원)</label>
+          <input type="number" id="modalItemUnitPrice" class="form-control" min="0" step="10" style="font-size:12px; padding:5px 8px; text-align:right;" />
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--line); padding-top:10px;">
+        <button id="btnDeleteItemModal" type="button" class="btn-secondary" style="color:#d32f2f; border-color:#ffcdd2; padding:5px 10px; font-size:11px;">
+          <span>🗑️ 삭제</span>
+        </button>
+        <div style="display:flex; gap:6px;">
+          <button id="btnCancelItemEdit" type="button" class="btn-secondary" style="padding:5px 10px; font-size:11px;">취소</button>
+          <button id="btnSaveItemEdit" type="button" class="btn-primary" style="padding:5px 14px; font-size:11px; width:auto;">저장</button>
         </div>
       </div>
     </div>

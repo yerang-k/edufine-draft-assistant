@@ -1045,8 +1045,9 @@ function renderItemsUI() {
             <option value="3" ${bNum === 3 ? 'selected' : ''}>3번 예산</option>
             <option value="4" ${bNum === 4 ? 'selected' : ''}>4번 예산</option>
           </select>
-          <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${idx + 1}. ${item.name || "물품"}</span>
+          <span class="quick-item-name" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer;" title="클릭하여 품목 수정">${idx + 1}. ${item.name || "물품"}</span>
           <span style="font-size:11px; color:var(--text-3); font-weight:400; flex-shrink:0;">(${unitPrice.toLocaleString()}원)</span>
+          <button type="button" class="btn-quick-edit" title="품목 수정 (품목명, 규격, 단가 등)" style="background:none; border:none; cursor:pointer; font-size:12px; padding:1px 3px; opacity:0.8;">✏️</button>
         </div>
         <div style="display:flex; align-items:center; gap:3px; flex-shrink:0;">
           <button type="button" class="qty-btn-minus qty-stepper-btn" title="1 감소">-</button>
@@ -1054,14 +1055,31 @@ function renderItemsUI() {
           <button type="button" class="qty-btn-plus qty-stepper-btn" title="1 증가">+</button>
           <span style="font-size:11px; color:var(--text-2); margin-left:2px;">${item.unit || "개"}</span>
         </div>
-        <div class="quick-item-total" style="font-size:12px; font-weight:700; color:var(--accent); min-width:68px; text-align:right; flex-shrink:0;">
+        <div class="quick-item-total" style="font-size:12px; font-weight:700; color:var(--accent); min-width:64px; text-align:right; flex-shrink:0;">
           ${totalPrice.toLocaleString()}원
         </div>
+        <button type="button" class="btn-quick-del" title="이 품목 삭제" style="background:none; border:none; color:#e53935; cursor:pointer; font-size:13px; font-weight:bold; padding:0 3px; margin-left:2px; flex-shrink:0; line-height:1;">✕</button>
       `;
 
       const minusBtn = rowDiv.querySelector(".qty-btn-minus");
       const plusBtn = rowDiv.querySelector(".qty-btn-plus");
       const qtyInput = rowDiv.querySelector(".qty-direct-input");
+      const editBtn = rowDiv.querySelector(".btn-quick-edit");
+      const delBtn = rowDiv.querySelector(".btn-quick-del");
+      const nameSpan = rowDiv.querySelector(".quick-item-name");
+
+      if (editBtn) editBtn.addEventListener("click", () => openItemEditModal(item, idx, 'single'));
+      if (nameSpan) nameSpan.addEventListener("click", () => openItemEditModal(item, idx, 'single'));
+
+      if (delBtn) {
+        delBtn.addEventListener("click", () => {
+          parsedItems.splice(idx, 1);
+          renderItemsUI();
+          syncQuantityAndBudget();
+          generateDraftText();
+          updateAnalyzeButtonState();
+        });
+      }
 
       minusBtn.addEventListener("click", () => {
         if (item.qty > 1) {
@@ -1108,7 +1126,7 @@ function renderItemsUI() {
       quickQtyList.appendChild(rowDiv);
     }
 
-    // 2) '품목 내역 상세' 탭 테이블 행 생성 (수량 스텝퍼 + 예산 선택 드롭다운 포함)
+    // 2) '품목 내역 상세' 탭 테이블 행 생성 (수량 스텝퍼 + 예산 선택 드롭다운 + 삭제 버튼 포함)
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${idx + 1}</td>
@@ -1132,6 +1150,9 @@ function renderItemsUI() {
       <td contenteditable="true" data-field="unit" title="클릭하여 직접 수정 가능">${item.unit || "개"}</td>
       <td contenteditable="true" data-field="unitPrice" title="클릭하여 직접 수정 가능">${unitPrice.toLocaleString()}원</td>
       <td><strong class="table-item-total" style="color:var(--text);">${totalPrice.toLocaleString()}원</strong></td>
+      <td style="text-align:center;">
+        <button type="button" class="tbl-btn-del" style="background:none; border:none; color:#e53935; cursor:pointer; font-size:13px; font-weight:bold; padding:2px 5px;" title="이 품목 삭제">✕</button>
+      </td>
     `;
 
     const budgetSel = tr.querySelector(".tbl-budget-select");
@@ -1140,6 +1161,17 @@ function renderItemsUI() {
       renderItemsUI();
       syncQuantityAndBudget();
     });
+
+    const tblDelBtn = tr.querySelector(".tbl-btn-del");
+    if (tblDelBtn) {
+      tblDelBtn.addEventListener("click", () => {
+        parsedItems.splice(idx, 1);
+        renderItemsUI();
+        syncQuantityAndBudget();
+        generateDraftText();
+        updateAnalyzeButtonState();
+      });
+    }
 
     tr.querySelector(".tbl-qty-minus").addEventListener("click", () => {
       if (item.qty > 1) {
@@ -1193,6 +1225,92 @@ function renderItemsUI() {
     });
 
     itemsTableBody.appendChild(tr);
+  });
+}
+
+// --------------------------------------------------------------------------
+// 품목 상세 수정 모달 관리 (단일 예산 및 다중 예산 모드 공통 지원)
+// --------------------------------------------------------------------------
+let editingItemTarget = null; // { mode: 'single' | 'multi', index: number }
+
+function openItemEditModal(item, index, mode = 'single') {
+  editingItemTarget = { mode, index };
+  const modal = document.getElementById("itemEditModal");
+  if (!modal) return;
+  document.getElementById("modalItemName").value = item.name || "";
+  document.getElementById("modalItemSpec").value = item.spec || "";
+  document.getElementById("modalItemBudget").value = item.budgetNum || 1;
+  document.getElementById("modalItemQty").value = item.qty || 1;
+  document.getElementById("modalItemUnit").value = item.unit || "개";
+  document.getElementById("modalItemUnitPrice").value = item.unitPrice || 0;
+  modal.style.display = "flex";
+  setTimeout(() => document.getElementById("modalItemName")?.focus(), 50);
+}
+
+function closeItemEditModal() {
+  const modal = document.getElementById("itemEditModal");
+  if (modal) modal.style.display = "none";
+  editingItemTarget = null;
+}
+
+const btnCloseItemEditModal = document.getElementById("btnCloseItemEditModal");
+const btnCancelItemEdit = document.getElementById("btnCancelItemEdit");
+const btnSaveItemEdit = document.getElementById("btnSaveItemEdit");
+const btnDeleteItemModal = document.getElementById("btnDeleteItemModal");
+
+if (btnCloseItemEditModal) btnCloseItemEditModal.addEventListener("click", closeItemEditModal);
+if (btnCancelItemEdit) btnCancelItemEdit.addEventListener("click", closeItemEditModal);
+
+if (btnSaveItemEdit) {
+  btnSaveItemEdit.addEventListener("click", () => {
+    if (!editingItemTarget) return;
+    const { mode, index } = editingItemTarget;
+    const targetList = (mode === 'multi') ? multiCurrentItems : parsedItems;
+    if (!targetList || !targetList[index]) return;
+
+    const itm = targetList[index];
+    itm.name = document.getElementById("modalItemName").value.trim() || "물품";
+    itm.spec = document.getElementById("modalItemSpec").value.trim();
+    itm.budgetNum = parseInt(document.getElementById("modalItemBudget").value) || 1;
+    itm.qty = Math.max(1, parseInt(document.getElementById("modalItemQty").value) || 1);
+    itm.unit = document.getElementById("modalItemUnit").value.trim() || "개";
+    itm.unitPrice = Math.max(0, parseInt(document.getElementById("modalItemUnitPrice").value) || 0);
+    itm.totalPrice = itm.qty * itm.unitPrice;
+
+    closeItemEditModal();
+
+    if (mode === 'multi') {
+      renderMultiCurrentItems();
+      renderMultiCumulativeSummary();
+      generateMultiDraftText();
+    } else {
+      renderItemsUI();
+      syncQuantityAndBudget();
+      generateDraftText();
+    }
+  });
+}
+
+if (btnDeleteItemModal) {
+  btnDeleteItemModal.addEventListener("click", () => {
+    if (!editingItemTarget) return;
+    const { mode, index } = editingItemTarget;
+    const targetList = (mode === 'multi') ? multiCurrentItems : parsedItems;
+    if (!targetList || !targetList[index]) return;
+
+    targetList.splice(index, 1);
+    closeItemEditModal();
+
+    if (mode === 'multi') {
+      renderMultiCurrentItems();
+      renderMultiCumulativeSummary();
+      generateMultiDraftText();
+    } else {
+      renderItemsUI();
+      syncQuantityAndBudget();
+      generateDraftText();
+      updateAnalyzeButtonState();
+    }
   });
 }
 
@@ -1669,44 +1787,34 @@ async function injectedFiller(title, body, items) {
     return docs;
   }
 
-  const allDocs = getAllDocuments();
+  // ★ 중요: chrome.scripting.executeScript({ allFrames: true }) 환경에서는
+  // 브라우저의 모든 iframe마다 이 함수가 직접 독립 실행됩니다.
+  // 상위 포털 프레임(Frame 0)이 하위 iframe을 넘나들며 동시에 DOM을 조작하면 포커스 상실 및 경합(Race Condition)으로
+  // 품목 타이핑 실패, 제목/본문 누락, 빈 행만 추가되는 치명적인 오류가 발생합니다.
+  // 따라서 현재 프레임에 품목 표([행추가] 또는 grdPrdlstDtl)가 실재하는 프레임만 단독으로 주입 작업을 수행합니다!
+  const hasDirectProposalElements = !!(findAddRowButton(document) || document.querySelector('[id*="grdPrdlstDtl"]'));
+  if (!hasDirectProposalElements) {
+    return {
+      titleFound: false,
+      bodyFound: false,
+      itemsInjectedCount: 0,
+      diagGridFound: false,
+      diagRowCount: 0,
+      isProposalScreen: false,
+      skippedNonProposalFrame: true,
+      url: location.href
+    };
+  }
+
+  const allDocs = [document];
   let titleFound = false;
   let bodyFound = false;
   let itemsInjectedCount = 0;
   let diagGridFound = false;
   let diagRowCount = 0;
 
-  // ★ 핵심: 배경에 숨겨진 탭(품의목록 등)을 배제하고, 화면에 실제로 보이는 '품의등록' 활성 탭 문서 특정!
-  function findActiveProposalDoc(docs) {
-    // 1순위: btnRowAdit([행추가]) 또는 grdPrdlstDtl(품목 그리드) 컴포넌트가 직접 존재하는 활성 작업 폼 문서!
-    for (const doc of docs) {
-      try {
-        const gridOrBtn = doc.querySelector('[id*="btnRowAdit"], [id*="grdPrdlstDtl"]');
-        if (gridOrBtn && gridOrBtn.getBoundingClientRect().width > 0) {
-          return doc;
-        }
-      } catch(e) {}
-    }
-    // 2순위: 텍스트 기반 품목내역/품의등록 표시 문서
-    for (const doc of docs) {
-      try {
-        const all = Array.from(doc.querySelectorAll('*'));
-        for (const el of all) {
-          if (el.children.length > 2) continue;
-          const txt = (el.textContent || '').trim().replace(/\s+/g, '');
-          if (txt.includes('품목내역') || txt.includes('품의등록') || txt.includes('지출품의')) {
-            const rect = el.getBoundingClientRect();
-            if (rect.width > 0 && rect.height > 0) {
-              return doc;
-            }
-          }
-        }
-      } catch(e) {}
-    }
-    return null;
-  }
-
-  const activeDoc = findActiveProposalDoc(allDocs) || document;
+  const activeDoc = document;
+  const activeWin = window;
 
   // 0. 에듀파인 예산 선택 여부 점검 및 예산 행 수집 (v2.2.3 정밀 판정)
   // 0. 에듀파인 예산 선택 여부 점검 (v2.5.5: '세부사업' 예산 그리드 1:1 매핑 정밀 판정)
@@ -1835,9 +1943,28 @@ async function injectedFiller(title, body, items) {
         return rect.width > 50 && rect.height > 30 && !ta.disabled;
       });
 
-      if (visibleTextareas.length > 0) {
-        foundTextarea = visibleTextareas[0];
+      // 개요/내용/본문/sumry 관련 textarea 우선 탐색
+      foundTextarea = visibleTextareas.find(ta => {
+        const s = `${ta.id} ${ta.name} ${ta.title} ${ta.className}`.toLowerCase();
+        return s.includes('sumry') || s.includes('reqsumry') || s.includes('body') || s.includes('개요') || s.includes('내용');
+      }) || visibleTextareas[0];
+
+      if (foundTextarea) {
+        foundTextarea.focus();
         applyValue(foundTextarea, body);
+
+        // Nexacro TextArea 객체 직접 값 갱신 및 바이트수 카운터 실시간 반영
+        try {
+          const nxTa = resolveNexacroComponent(activeWin, foundTextarea.id, foundTextarea);
+          if (nxTa) {
+            if (typeof nxTa.set_value === 'function') nxTa.set_value(body);
+            if (typeof nxTa.on_update_value === 'function') nxTa.on_update_value(body);
+            if (typeof nxTa.updateToDataset === 'function') nxTa.updateToDataset();
+          }
+        } catch(e) {}
+
+        foundTextarea.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+        foundTextarea.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
         foundTextarea.blur();
         foundTextarea.dispatchEvent(new Event('blur', { bubbles: true }));
         bodyFound = true;
@@ -1872,8 +1999,14 @@ async function injectedFiller(title, body, items) {
 
       let titleInput = null;
 
-      // 2-1: textarea 바로 앞에 위치한 넓은 텍스트 input
-      if (foundTextarea && visibleInputs.length > 0) {
+      // 1순위: 'titl', 'title', '제목' 관련 속성을 가진 input
+      titleInput = visibleInputs.find(inp => {
+        const s = `${inp.id} ${inp.name} ${inp.title} ${inp.className}`.toLowerCase();
+        return s.includes('titl') || s.includes('title') || s.includes('제목');
+      });
+
+      // 2순위: textarea 바로 앞에 위치한 넓은 텍스트 input
+      if (!titleInput && foundTextarea && visibleInputs.length > 0) {
         const beforeTa = visibleInputs.filter(inp => {
           try {
             return (inp.compareDocumentPosition(foundTextarea) & Node.DOCUMENT_POSITION_FOLLOWING);
@@ -1884,21 +2017,27 @@ async function injectedFiller(title, body, items) {
         }
       }
 
-      // 2-2: '제목' 관련 속성
-      if (!titleInput) {
-        titleInput = visibleInputs.find(inp => {
-          const s = `${inp.id} ${inp.name} ${inp.title} ${inp.className}`.toLowerCase();
-          return s.includes('tit') || s.includes('제목');
-        });
-      }
-
-      // 2-3: 후보 중 첫 번째
+      // 3순위: 후보 중 첫 번째
       if (!titleInput && visibleInputs.length > 0) {
         titleInput = visibleInputs[0];
       }
 
       if (titleInput) {
+        titleInput.focus();
         applyValue(titleInput, title);
+
+        // Nexacro Edit 객체 직접 값 갱신 및 글자수 카운터 실시간 반영
+        try {
+          const nxTitl = resolveNexacroComponent(activeWin, titleInput.id, titleInput);
+          if (nxTitl) {
+            if (typeof nxTitl.set_value === 'function') nxTitl.set_value(title);
+            if (typeof nxTitl.on_update_value === 'function') nxTitl.on_update_value(title);
+            if (typeof nxTitl.updateToDataset === 'function') nxTitl.updateToDataset();
+          }
+        } catch(e) {}
+
+        titleInput.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+        titleInput.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
         titleInput.blur();
         titleInput.dispatchEvent(new Event('blur', { bubbles: true }));
         titleFound = true;
@@ -1906,6 +2045,43 @@ async function injectedFiller(title, body, items) {
     } catch(e) {
       console.warn("제목 주입 오류:", e);
     }
+  }
+
+  // 2-B. Nexacro 마스터 Dataset(dsMst/dsReqMst 등)에 제목과 개요 2차 직접 확정 주입
+  if (title || body) {
+    try {
+      const allComps = [];
+      const collectComps = (root) => {
+        if (!root) return;
+        if (root.components) {
+          for (let i = 0; i < root.components.length; i++) {
+            const c = root.components[i];
+            allComps.push(c);
+            collectComps(c.form || c);
+          }
+        }
+      };
+      if (activeWin.nexacro?.getApplication) {
+        const app = activeWin.nexacro.getApplication();
+        collectComps(app?.mainframe);
+      }
+      for (const comp of allComps) {
+        const dsList = [comp.dsMst, comp.dsReqMst, comp.dsMaster, comp.dsProposal, comp._binddataset].filter(Boolean);
+        for (const ds of dsList) {
+          if (ds && typeof ds.setColumn === 'function' && typeof ds.getRowCount === 'function' && ds.getRowCount() > 0) {
+            for (let c = 0; c < (ds.getColCount?.() || 0); c++) {
+              const colId = String(ds.getColID(c) || '').toLowerCase();
+              if (title && (colId === 'req_titl' || colId === 'titl' || colId === 'title')) {
+                try { ds.setColumn(0, ds.getColID(c), title); } catch(e) {}
+              }
+              if (body && (colId === 'req_sumry' || colId === 'sumry' || colId === 'req_cn' || colId === 'cn')) {
+                try { ds.setColumn(0, ds.getColID(c), body); } catch(e) {}
+              }
+            }
+          }
+        }
+      }
+    } catch(e) {}
   }
 
   // -------------------------------------------------------------------------
@@ -2038,17 +2214,28 @@ async function injectedFiller(title, body, items) {
     const btnBottom = btnRect ? btnRect.bottom : 0;
     const rawBtnId = btnEl?.id || addRowBtnInfo?.leaf?.id || '';
 
+    let gridId = '';
+    let gridEl = null;
+
+    // 0순위: 전국 K-에듀파인 표준 품목 그리드(grdPrdlstDtl) 직접 탐색
+    const directPrdlstGrid = doc.querySelector('[id*="grdPrdlstDtl"]');
+    if (directPrdlstGrid) {
+      const fullId = directPrdlstGrid.id || '';
+      const splitIdx = fullId.indexOf('grdPrdlstDtl');
+      if (splitIdx >= 0) {
+        gridId = fullId.slice(0, splitIdx + 'grdPrdlstDtl'.length);
+        gridEl = doc.getElementById(gridId) || directPrdlstGrid;
+      }
+    }
+
     // 버튼 ID 예시: mainframe.MainVFrameSet.SubHFrameSet.WorkVFrameSet.WorkFrame.winId_... .form.divWork.form.divAuth2.form.btnRowAdit:icontext
     // -> 같은 폼 영역 prefix 추출: ...divWork.form.divAuth2.form
     const cleanBtnId = rawBtnId.split(':')[0];
     const lastDotIdx = cleanBtnId.lastIndexOf('.');
     const sectionPrefix = lastDotIdx > 0 ? cleanBtnId.slice(0, lastDotIdx) : '';
 
-    let gridId = '';
-    let gridEl = null;
-
     // 1순위: 버튼과 동일한 폼 컨테이너(sectionPrefix, 예: divAuth2.form) 내부의 Nexacro Grid 탐색
-    if (sectionPrefix) {
+    if (!gridId && sectionPrefix) {
       const sameSectionGridNodes = Array.from(doc.querySelectorAll('[id*=".head.gridrow_"], [id*=".body.gridrow_"]')).filter(el => {
         if (!el.id || !el.id.startsWith(sectionPrefix + '.')) return false;
         const r = el.getBoundingClientRect();
@@ -2066,8 +2253,6 @@ async function injectedFiller(title, body, items) {
         const r = el.getBoundingClientRect();
         if (r.width < 15 || r.height < 10) return false;
         if (btnBottom > 0 && r.top < btnBottom - 15) return false;
-        // 배경 포털(MainFrame) 제외, 실제 업무화면(WorkFrame) 우선
-        if (el.id.includes('.MainFrame.')) return false;
         const t = (el.textContent || '').replace(/\s+/g, '');
         return t.includes('내용') || t.includes('규격') || t.includes('수량') || t.includes('예상단가');
       });
@@ -2104,7 +2289,7 @@ async function injectedFiller(title, body, items) {
     const allRowDivs = Array.from(searchRoot.querySelectorAll('[id*=".body.gridrow_"]')).filter(el => {
       const id = el.id || '';
       if (gridId && !id.startsWith(gridId + '.body.gridrow_')) return false;
-      if (!gridId && id.includes('.MainFrame.')) return false;
+      if (id.includes('grdBudget') || id.includes('grdMst')) return false;
       // .cell_ 이나 :container 등 하위 노드는 제외하고 오직 행(row) 본체 div만 선택
       if (!/\.body\.gridrow_(\d+)$/.test(id)) return false;
 
@@ -2703,7 +2888,7 @@ async function injectedFiller(title, body, items) {
         }
         const startRowIndex = existingFilledCount;
 
-        const liveBanner = createOrUpdateBanner(targetDoc, '🚀 [에듀파인 품의 도우미 v2.5.5] 품목 표 자동 행추가 및 셀 타이핑을 시작합니다...');
+        const liveBanner = createOrUpdateBanner(targetDoc, '🚀 [에듀파인 품의 도우미 v2.6.1] 품목 표 자동 행추가 및 셀 타이핑을 시작합니다...');
 
         for (let i = 0; i < items.length; i++) {
           const curItem = items[i];
@@ -2744,10 +2929,19 @@ async function injectedFiller(title, body, items) {
 
           let targetRow = null;
           if (gridInfo.nxGrid && typeof gridInfo.nxGrid.selectRow === 'function') {
-            try { gridInfo.nxGrid.selectRow(targetIndex); } catch(e) {}
-            await sleep(60);
+            try {
+              gridInfo.nxGrid.selectRow(targetIndex);
+              gridInfo.nxGrid.setCellPos(3);
+            } catch(e) {}
+            await sleep(70);
+            currentRows = findItemRows(targetDoc, addRowBtnInfo, gridInfo);
           }
-          targetRow = currentRows[targetIndex] || (gridInfo.gridId ? targetDoc.getElementById(`${gridInfo.gridId}.body.gridrow_${targetIndex}`) : null);
+
+          const targetSeqStr = String(targetIndex + 1);
+          targetRow = currentRows.find(r => {
+            const cells = r.querySelectorAll('[id*=".cell_"], td');
+            return Array.from(cells).some(c => (c.textContent || '').trim() === targetSeqStr);
+          }) || currentRows[targetIndex] || (gridInfo.gridId ? targetDoc.getElementById(`${gridInfo.gridId}.body.gridrow_${targetIndex}`) : null) || currentRows[currentRows.length - 1];
 
           if (!targetRow) {
             // DOM 행을 끝내 못 찾았더라도 nxDs(Nexacro 데이터셋)가 있으면 데이터셋에 직접 주입하여 품목 저장 완수!
@@ -3372,8 +3566,9 @@ function renderMultiCurrentItems() {
     rowDiv.innerHTML = `
       <div style="flex:1; min-width:0; font-size:12px; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:flex; align-items:center; gap:4px;" title="${item.name || ''}">
         <span style="padding:1px 5px; font-size:10px; font-weight:700; border:1px solid var(--accent-border); border-radius:4px; background:var(--accent-soft); color:var(--accent); flex-shrink:0;">${currentMultiBudget}번 예산</span>
-        <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${idx + 1}. ${item.name || "물품"}${item.spec ? ` (${item.spec})` : ''}</span>
+        <span class="multi-item-name" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer;" title="클릭하여 품목 수정">${idx + 1}. ${item.name || "물품"}${item.spec ? ` (${item.spec})` : ''}</span>
         <span style="font-size:11px; color:var(--text-3); font-weight:400; flex-shrink:0;">(${unitPrice.toLocaleString()}원)</span>
+        <button type="button" class="btn-multi-edit" title="품목 수정 (품목명, 규격, 단가 등)" style="background:none; border:none; cursor:pointer; font-size:12px; padding:1px 3px; opacity:0.8;">✏️</button>
       </div>
       <div style="display:flex; align-items:center; gap:3px; flex-shrink:0;">
         <button type="button" class="qty-btn-minus qty-stepper-btn" title="1 감소">-</button>
@@ -3381,14 +3576,30 @@ function renderMultiCurrentItems() {
         <button type="button" class="qty-btn-plus qty-stepper-btn" title="1 증가">+</button>
         <span style="font-size:11px; color:var(--text-2); margin-left:2px;">${item.unit || "개"}</span>
       </div>
-      <div class="quick-item-total" style="font-size:12px; font-weight:700; color:var(--accent); min-width:68px; text-align:right; flex-shrink:0;">
+      <div class="quick-item-total" style="font-size:12px; font-weight:700; color:var(--accent); min-width:64px; text-align:right; flex-shrink:0;">
         ${sub.toLocaleString()}원
       </div>
+      <button type="button" class="btn-multi-del" title="이 품목 삭제" style="background:none; border:none; color:#e53935; cursor:pointer; font-size:13px; font-weight:bold; padding:0 3px; margin-left:2px; flex-shrink:0; line-height:1;">✕</button>
     `;
 
     const minusBtn = rowDiv.querySelector(".qty-btn-minus");
     const plusBtn = rowDiv.querySelector(".qty-btn-plus");
     const qtyInput = rowDiv.querySelector(".qty-direct-input");
+    const editBtn = rowDiv.querySelector(".btn-multi-edit");
+    const delBtn = rowDiv.querySelector(".btn-multi-del");
+    const nameSpan = rowDiv.querySelector(".multi-item-name");
+
+    if (editBtn) editBtn.addEventListener("click", () => openItemEditModal(item, idx, 'multi'));
+    if (nameSpan) nameSpan.addEventListener("click", () => openItemEditModal(item, idx, 'multi'));
+
+    if (delBtn) {
+      delBtn.addEventListener("click", () => {
+        multiCurrentItems.splice(idx, 1);
+        renderMultiCurrentItems();
+        renderMultiCumulativeSummary();
+        generateMultiDraftText();
+      });
+    }
 
     minusBtn.addEventListener("click", () => {
       if (item.qty > 1) {
@@ -3844,7 +4055,7 @@ async function executeInjection({
       return;
     }
 
-    const currentVer = chrome.runtime.getManifest()?.version || "2.5.5";
+    const currentVer = chrome.runtime.getManifest()?.version || "2.6.1";
     let msg = `[에듀파인 화면 입력 완료! (v${currentVer})]\n\n`;
 
     if (injectDraft) {
@@ -4006,7 +4217,7 @@ async function checkForAppUpdates() {
   }
 
   try {
-    const curVer = chrome.runtime.getManifest()?.version || "2.5.5";
+    const curVer = chrome.runtime.getManifest()?.version || "2.6.1";
     const { lastUpdateCheckTime, latestRemoteVer, lastDismissedUpdateVer } = await chrome.storage.local.get([
       "lastUpdateCheckTime", "latestRemoteVer", "lastDismissedUpdateVer"
     ]);
