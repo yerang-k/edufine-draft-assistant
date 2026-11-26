@@ -2888,7 +2888,7 @@ async function injectedFiller(title, body, items) {
         }
         const startRowIndex = existingFilledCount;
 
-        const liveBanner = createOrUpdateBanner(targetDoc, '🚀 [에듀파인 품의 도우미 v2.6.1] 품목 표 자동 행추가 및 셀 타이핑을 시작합니다...');
+        const liveBanner = createOrUpdateBanner(targetDoc, '🚀 [에듀파인 품의 도우미 v2.6.2] 품목 표 자동 행추가 및 셀 타이핑을 시작합니다...');
 
         for (let i = 0; i < items.length; i++) {
           const curItem = items[i];
@@ -2938,10 +2938,27 @@ async function injectedFiller(title, body, items) {
           }
 
           const targetSeqStr = String(targetIndex + 1);
-          targetRow = currentRows.find(r => {
-            const cells = r.querySelectorAll('[id*=".cell_"], td');
-            return Array.from(cells).some(c => (c.textContent || '').trim() === targetSeqStr);
-          }) || currentRows[targetIndex] || (gridInfo.gridId ? targetDoc.getElementById(`${gridInfo.gridId}.body.gridrow_${targetIndex}`) : null) || currentRows[currentRows.length - 1];
+          // 1순위: gridId 기준 DOM ID 직접 탐색 (Nexacro 그리드 고유 행 ID)
+          if (gridInfo.gridId) {
+            targetRow = targetDoc.getElementById(`${gridInfo.gridId}.body.gridrow_${targetIndex}`);
+          }
+          // 2순위: findItemRows가 정렬하여 반환한 currentRows 배열의 해당 인덱스
+          if (!targetRow && currentRows && currentRows[targetIndex]) {
+            targetRow = currentRows[targetIndex];
+          }
+          // 3순위: 순번(seq) 컬럼의 텍스트가 정확히 일치하는 행 탐색
+          // ★ 주의: r.querySelectorAll('[id*=".cell_"]') 전체 셀을 검사하면 수량, 단가 등이 '2'일 때 이전 행을 오인식하는 치명적 버그가 발생하므로 반드시 순번 셀만 특정하여 검사!
+          if (!targetRow || (targetRow.querySelector('[id*=".cell_"][id*="_2"], td:nth-child(3)')?.textContent.trim() !== targetSeqStr)) {
+            const matchBySeq = currentRows.find(r => {
+              const seqCell = r.querySelector('[id*=".cell_"][id*="_2"], td:nth-child(3)');
+              return (seqCell?.textContent || '').trim() === targetSeqStr;
+            });
+            if (matchBySeq) targetRow = matchBySeq;
+          }
+          // 4순위: 안전 폴백
+          if (!targetRow && currentRows.length > 0) {
+            targetRow = currentRows[Math.min(targetIndex, currentRows.length - 1)];
+          }
 
           if (!targetRow) {
             // DOM 행을 끝내 못 찾았더라도 nxDs(Nexacro 데이터셋)가 있으면 데이터셋에 직접 주입하여 품목 저장 완수!
@@ -4055,7 +4072,7 @@ async function executeInjection({
       return;
     }
 
-    const currentVer = chrome.runtime.getManifest()?.version || "2.6.1";
+    const currentVer = chrome.runtime.getManifest()?.version || "2.6.2";
     let msg = `[에듀파인 화면 입력 완료! (v${currentVer})]\n\n`;
 
     if (injectDraft) {
@@ -4217,7 +4234,7 @@ async function checkForAppUpdates() {
   }
 
   try {
-    const curVer = chrome.runtime.getManifest()?.version || "2.6.1";
+    const curVer = chrome.runtime.getManifest()?.version || "2.6.2";
     const { lastUpdateCheckTime, latestRemoteVer, lastDismissedUpdateVer } = await chrome.storage.local.get([
       "lastUpdateCheckTime", "latestRemoteVer", "lastDismissedUpdateVer"
     ]);
