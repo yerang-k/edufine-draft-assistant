@@ -1,0 +1,29 @@
+name: Chrome Web Store Auto Deploy
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Upload & Publish to Chrome Web Store
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Package extension ZIP
+        run: |
+          zip -r extension.zip manifest.json background.js content.js sidepanel.html sidepanel.js styles.css xlsx.full.min.js icon16.png icon32.png icon48.png icon128.png
+
+      - name: Upload & Publish to Chrome Web Store
+        uses: mnao305/chrome-extension-upload@v7.0.0
+        with:
+          file-path: extension.zip
+          extension-id: ${{ secrets.EXTENSION_ID }}
+          publisher-id: ${{ secrets.PUBLISHER_ID }}
+          client-id: ${{ secrets.CLIENT_ID }}
+          client-secret: ${{ secrets.CLIENT_SECRET }}
+          refresh-token: ${{ secrets.REFRESH_TOKEN }}
+          publish: true
