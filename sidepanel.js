@@ -295,11 +295,40 @@ console.log(`[에듀파인 품의 도우미] 로드됨: v${manifestVer}`);
 // 설정 모달
 const btnSettings = document.getElementById("btnSettings");
 const settingsModal = document.getElementById("settingsModal");
+const apiProviderSelect = document.getElementById("apiProviderSelect");
+const geminiKeySection = document.getElementById("geminiKeySection");
+const jbaiKeySection = document.getElementById("jbaiKeySection");
 const apiKeyInput = document.getElementById("apiKeyInput");
+const jbaiApiKeyInput = document.getElementById("jbaiApiKeyInput");
+const jbaiModelSelect = document.getElementById("jbaiModelSelect");
+const jbaiCustomModelInput = document.getElementById("jbaiCustomModelInput");
+const jbaiBaseUrlInput = document.getElementById("jbaiBaseUrlInput");
 const btnSaveSettings = document.getElementById("btnSaveSettings");
 const btnCancelSettings = document.getElementById("btnCancelSettings");
 const btnTestKey = document.getElementById("btnTestKey");
 const apiTestResult = document.getElementById("apiTestResult");
+
+const DEFAULT_JBAI_BASE_URL = "https://api.baze.co/v1/gateway";
+const DEFAULT_JBAI_MODEL = "gemini-3.8-flash";
+
+function updateProviderSettingsUI() {
+  const provider = apiProviderSelect ? apiProviderSelect.value : "gemini";
+  if (geminiKeySection) geminiKeySection.style.display = provider === "gemini" ? "block" : "none";
+  if (jbaiKeySection) jbaiKeySection.style.display = provider === "jbai" ? "block" : "none";
+  if (apiTestResult) apiTestResult.textContent = "";
+}
+
+if (apiProviderSelect) {
+  apiProviderSelect.addEventListener("change", updateProviderSettingsUI);
+}
+
+if (jbaiModelSelect) {
+  jbaiModelSelect.addEventListener("change", () => {
+    if (jbaiCustomModelInput) {
+      jbaiCustomModelInput.style.display = jbaiModelSelect.value === "custom" ? "block" : "none";
+    }
+  });
+}
 
 // 관련 근거 관리 요소
 const newRefInput = document.getElementById("newRefInput");
@@ -411,10 +440,35 @@ refSelect.addEventListener("change", () => {
 });
 
 // 초기화
-chrome.storage.local.get(["geminiApiKey"], (res) => {
-  if (res.geminiApiKey) apiKeyInput.value = res.geminiApiKey;
-  loadRefList();
-});
+chrome.storage.local.get(
+  ["apiProvider", "geminiApiKey", "jbaiApiKey", "jbaiModel", "jbaiBaseUrl"],
+  (res) => {
+    if (res.geminiApiKey && apiKeyInput) apiKeyInput.value = res.geminiApiKey;
+    if (res.jbaiApiKey && jbaiApiKeyInput) jbaiApiKeyInput.value = res.jbaiApiKey;
+    if (jbaiBaseUrlInput) jbaiBaseUrlInput.value = res.jbaiBaseUrl || DEFAULT_JBAI_BASE_URL;
+
+    if (jbaiModelSelect) {
+      const savedModel = res.jbaiModel || DEFAULT_JBAI_MODEL;
+      const hasOption = Array.from(jbaiModelSelect.options).some((opt) => opt.value === savedModel);
+      if (hasOption) {
+        jbaiModelSelect.value = savedModel;
+        if (jbaiCustomModelInput) jbaiCustomModelInput.style.display = "none";
+      } else {
+        jbaiModelSelect.value = "custom";
+        if (jbaiCustomModelInput) {
+          jbaiCustomModelInput.value = savedModel;
+          jbaiCustomModelInput.style.display = "block";
+        }
+      }
+    }
+
+    if (apiProviderSelect) {
+      apiProviderSelect.value = res.apiProvider || "gemini";
+      updateProviderSettingsUI();
+    }
+    loadRefList();
+  }
+);
 
 // 모드 전환
 modeBtnImage.addEventListener("click", () => {
@@ -631,8 +685,74 @@ dropzone.addEventListener("drop", (e) => {
 btnSettings.addEventListener("click", () => settingsModal.classList.add("active"));
 btnCancelSettings.addEventListener("click", () => settingsModal.classList.remove("active"));
 
-async function testApiKey(key) {
+async function getActiveApiConfig() {
+  const res = await chrome.storage.local.get([
+    "apiProvider",
+    "geminiApiKey",
+    "jbaiApiKey",
+    "jbaiModel",
+    "jbaiBaseUrl"
+  ]);
+  const provider = res.apiProvider || "gemini";
+  if (provider === "jbai") {
+    return {
+      provider: "jbai",
+      apiKey: (res.jbaiApiKey || "").trim(),
+      model: (res.jbaiModel || DEFAULT_JBAI_MODEL).trim(),
+      baseUrl: (res.jbaiBaseUrl || DEFAULT_JBAI_BASE_URL).trim().replace(/\/+$/, "")
+    };
+  }
+  return {
+    provider: "gemini",
+    apiKey: (res.geminiApiKey || "").trim(),
+    model: "",
+    baseUrl: ""
+  };
+}
+
+async function testApiKey(key, provider = "gemini", baseUrl = DEFAULT_JBAI_BASE_URL, model = DEFAULT_JBAI_MODEL) {
   if (!key) return { success: false, message: "API 키를 입력해주세요." };
+
+  if (provider === "jbai") {
+    const cleanBase = (baseUrl || DEFAULT_JBAI_BASE_URL).trim().replace(/\/+$/, "");
+    try {
+      const res = await fetch(`${cleanBase}/models`, {
+        headers: { Authorization: `Bearer ${key}` }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        const list = Array.isArray(data.data) ? data.data.map(m => m.id).filter(Boolean) : [];
+        return { success: true, models: list };
+      }
+      if (res.status === 401 || res.status === 403) {
+        return { success: false, message: data.error?.message || "전북AI API 키가 유효하지 않거나 권한이 없습니다." };
+      }
+    } catch (e) {}
+
+    // /models 엔드포인트가 닫혀 있을 경우 소형 chat/completions 핑으로 검증
+    try {
+      const pingRes = await fetch(`${cleanBase}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${key}`
+        },
+        body: JSON.stringify({
+          model: model || DEFAULT_JBAI_MODEL,
+          messages: [{ role: "user", content: "ok" }],
+          max_tokens: 5
+        })
+      });
+      const pingData = await pingRes.json().catch(() => ({}));
+      if (pingRes.ok) {
+        return { success: true, models: [model || DEFAULT_JBAI_MODEL] };
+      }
+      return { success: false, message: pingData.error?.message || `전북AI 연결 실패 (HTTP ${pingRes.status})` };
+    } catch (e) {
+      return { success: false, message: `전북AI 서버에 연결할 수 없습니다. (${e.message})` };
+    }
+  }
+
   const versions = ["v1beta", "v1"];
   for (const ver of versions) {
     try {
@@ -651,14 +771,201 @@ async function testApiKey(key) {
   return { success: false, message: "구글 서버에 연결할 수 없습니다." };
 }
 
+// Google Gemini & 전북AI (OpenAI 호환 Gateway) 통합 호출 함수
+async function callAiModel({ config, promptText, optimizedImages = [], extraText = "", statusEl = null }) {
+  if (config.provider === "jbai") {
+    const cleanBase = (config.baseUrl || DEFAULT_JBAI_BASE_URL).replace(/\/+$/, "");
+    const userContent = [{ type: "text", text: promptText }];
+    for (const imgDataUrl of optimizedImages) {
+      userContent.push({
+        type: "image_url",
+        image_url: { url: imgDataUrl }
+      });
+    }
+    if (extraText) {
+      userContent.push({ type: "text", text: extraText });
+    }
+
+    const fallbackModels = [
+      config.model || DEFAULT_JBAI_MODEL,
+      "gemini-3.8-flash",
+      "gemini-3.7-flash",
+      "gemini-3.5-flash",
+      "gemini-3.5-flash-lite"
+    ];
+    const candidateModels = [...new Set(fallbackModels.filter(Boolean))];
+
+    let lastErrMsg = "";
+    for (const model of candidateModels) {
+      if (statusEl) statusEl.textContent = `전북AI(${model}) 분석 중...`;
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 25000);
+        const res = await fetch(`${cleanBase}/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${config.apiKey}`
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            model,
+            messages: [{ role: "user", content: userContent }],
+            temperature: 0.1
+          })
+        });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+          const data = await res.json();
+          const rawText = data.choices?.[0]?.message?.content;
+          if (rawText) return rawText;
+          lastErrMsg = "AI 응답 내용이 비어있습니다.";
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          lastErrMsg = errData.error?.message || `전북AI API 오류 (HTTP ${res.status})`;
+          console.log(`[전북AI 모델 전환] ${model}:`, lastErrMsg);
+          if (res.status === 401 || res.status === 403) break;
+        }
+      } catch (err) {
+        lastErrMsg = err.name === "AbortError" ? "모델 응답 지연으로 백업 모델로 전환" : err.message;
+      }
+    }
+    throw new Error(lastErrMsg || "전북AI 분석에 실패했습니다.");
+  }
+
+  // Google Gemini 기본 경로
+  const contentParts = [{ text: promptText }];
+  for (const optimized of optimizedImages) {
+    const pureBase64 = optimized.split(",")[1];
+    const mimeType = optimized.split(";")[0].split(":")[1] || "image/jpeg";
+    contentParts.push({
+      inlineData: {
+        mimeType: mimeType,
+        data: pureBase64
+      }
+    });
+  }
+  if (extraText) {
+    contentParts.push({ text: extraText });
+  }
+
+  const { lastFastGeminiModel } = await chrome.storage.local.get(["lastFastGeminiModel"]);
+  const fastCandidates = [
+    "gemini-2.5-flash-lite",
+    "gemini-2.0-flash",
+    "gemini-2.5-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-3-flash-preview",
+    "gemini-3.8-flash",
+    "gemini-1.5-flash-latest"
+  ];
+
+  let candidateModels = [];
+  if (lastFastGeminiModel) candidateModels.push(lastFastGeminiModel);
+  for (const m of fastCandidates) {
+    if (!candidateModels.includes(m)) candidateModels.push(m);
+  }
+
+  const apiVer = "v1beta";
+  let res = null;
+  let lastErrMsg = "";
+
+  for (let i = 0; i < candidateModels.length; i++) {
+    const model = candidateModels[i];
+    if (statusEl) statusEl.textContent = `AI(${model}) 분석 중...`;
+
+    try {
+      const url = `https://generativelanguage.googleapis.com/${apiVer}/models/${model}:generateContent?key=${config.apiKey}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+      const genConfig = {
+        temperature: 0.1,
+        responseMimeType: "application/json"
+      };
+      if (model.includes("2.5-flash")) {
+        genConfig.thinkingConfig = { thinkingBudget: 0 };
+      }
+
+      res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          contents: [{ parts: contentParts }],
+          generationConfig: genConfig
+        })
+      });
+
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        chrome.storage.local.set({ lastFastGeminiModel: model });
+        break;
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        const msg = errData.error?.message || "";
+        lastErrMsg = msg;
+        console.log(`[AI 모델 전환] ${model}:`, msg);
+
+        const match = msg.match(/use\s+models\/(gemini-[a-zA-Z0-9.-]+)/i);
+        if (match && match[1] && !candidateModels.includes(match[1])) {
+          candidateModels.splice(i + 1, 0, match[1]);
+        }
+      }
+    } catch (err) {
+      lastErrMsg = err.name === "AbortError" ? "모델 응답 지연으로 고속 백업 모델로 전환" : err.message;
+    }
+  }
+
+  if (!res || !res.ok) {
+    const check = await testApiKey(config.apiKey, "gemini");
+    if (check.success && check.models.length > 0) {
+      const extraModels = check.models.filter(m => m.includes("flash") && !m.includes("tts") && !m.includes("-image") && !candidateModels.includes(m));
+      for (const model of extraModels) {
+        if (statusEl) statusEl.textContent = `AI(${model}) 분석 중...`;
+        try {
+          const url = `https://generativelanguage.googleapis.com/${check.version || 'v1beta'}/models/${model}:generateContent?key=${config.apiKey}`;
+          res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: contentParts }],
+              generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
+            })
+          });
+          if (res.ok) {
+            chrome.storage.local.set({ lastFastGeminiModel: model });
+            break;
+          }
+        } catch (e) {}
+      }
+    }
+  }
+
+  if (!res || !res.ok) throw new Error(lastErrMsg || "AI 분석에 실패했습니다.");
+  const data = await res.json();
+  const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!rawText) throw new Error("AI 응답 내용이 비어있습니다.");
+  return rawText;
+}
+
 btnTestKey.addEventListener("click", async () => {
-  const key = apiKeyInput.value.trim();
+  const provider = apiProviderSelect ? apiProviderSelect.value : "gemini";
+  const key = provider === "jbai" ? (jbaiApiKeyInput?.value.trim() || "") : apiKeyInput.value.trim();
+  const baseUrl = jbaiBaseUrlInput?.value.trim() || DEFAULT_JBAI_BASE_URL;
+  const selectedModel = jbaiModelSelect?.value === "custom"
+    ? (jbaiCustomModelInput?.value.trim() || DEFAULT_JBAI_MODEL)
+    : (jbaiModelSelect?.value || DEFAULT_JBAI_MODEL);
+
   apiTestResult.style.color = "var(--accent)";
-  apiTestResult.textContent = "API 키 테스트 중...";
-  const res = await testApiKey(key);
+  apiTestResult.textContent = provider === "jbai" ? "전북AI API 연결 테스트 중..." : "API 키 테스트 중...";
+  const res = await testApiKey(key, provider, baseUrl, selectedModel);
   if (res.success) {
     apiTestResult.style.color = "var(--ok)";
-    apiTestResult.textContent = `연결 성공! (${res.models.length}개 모델 사용 가능)`;
+    const countTxt = res.models?.length > 0 ? ` (${res.models.length}개 모델 확인됨)` : "";
+    apiTestResult.textContent = `${provider === "jbai" ? "전북AI" : "Gemini"} 연결 성공!${countTxt}`;
   } else {
     apiTestResult.style.color = "var(--danger)";
     apiTestResult.textContent = getKoreanErrorMessage(res.message);
@@ -666,12 +973,30 @@ btnTestKey.addEventListener("click", async () => {
 });
 
 btnSaveSettings.addEventListener("click", () => {
-  const key = apiKeyInput.value.trim();
-  if (!key) return alert("API Key를 입력해주세요.");
-  chrome.storage.local.set({ geminiApiKey: key }, () => {
-    settingsModal.classList.remove("active");
-    alert("API Key가 저장되었습니다.");
-  });
+  const provider = apiProviderSelect ? apiProviderSelect.value : "gemini";
+  const geminiKey = apiKeyInput.value.trim();
+  const jbaiKey = jbaiApiKeyInput ? jbaiApiKeyInput.value.trim() : "";
+  const jbaiBaseUrl = (jbaiBaseUrlInput?.value.trim() || DEFAULT_JBAI_BASE_URL).replace(/\/+$/, "");
+  const jbaiModel = jbaiModelSelect?.value === "custom"
+    ? (jbaiCustomModelInput?.value.trim() || DEFAULT_JBAI_MODEL)
+    : (jbaiModelSelect?.value || DEFAULT_JBAI_MODEL);
+
+  if (provider === "gemini" && !geminiKey) return alert("Gemini API Key를 입력해주세요.");
+  if (provider === "jbai" && !jbaiKey) return alert("전북AI API Key를 입력해주세요.");
+
+  chrome.storage.local.set(
+    {
+      apiProvider: provider,
+      geminiApiKey: geminiKey,
+      jbaiApiKey: jbaiKey,
+      jbaiModel,
+      jbaiBaseUrl
+    },
+    () => {
+      settingsModal.classList.remove("active");
+      alert(`${provider === "jbai" ? "전북AI" : "Google Gemini"} API 설정이 저장되었습니다.`);
+    }
+  );
 });
 
 // 탭 전환
@@ -691,10 +1016,10 @@ tabBtnItems.addEventListener("click", () => {
 
 // AI 분석 실행 공통 함수 (isAppend가 true이면 기존 품목 뒤에 누적)
 async function executeAnalyze(isAppend = false) {
-  const { geminiApiKey } = await chrome.storage.local.get(["geminiApiKey"]);
-  if (!geminiApiKey) {
+  const apiConfig = await getActiveApiConfig();
+  if (!apiConfig.apiKey) {
     settingsModal.classList.add("active");
-    alert("Gemini API Key를 먼저 설정해주세요.");
+    alert(apiConfig.provider === "jbai" ? "전북AI API Key를 먼저 설정해주세요." : "Gemini API Key를 먼저 설정해주세요.");
     return;
   }
 
@@ -749,134 +1074,28 @@ async function executeAnalyze(isAppend = false) {
 5. 수량(qty)도 정수 숫자로만 작성하세요.
 `;
 
-    contentParts.push({ text: promptText });
+    let optimizedList = [];
+    let extraText = "";
 
     if (activeMode === "image") {
       statusMsg.textContent = `⏳ ${uploadedImages.length}개 캡처 이미지 초고속 압축 중...`;
-      const optimizedList = await Promise.all(
+      optimizedList = await Promise.all(
         uploadedImages.map(base64Img => resizeImageBase64(base64Img, 960))
       );
-      for (const optimized of optimizedList) {
-        const pureBase64 = optimized.split(",")[1];
-        const mimeType = optimized.split(";")[0].split(":")[1] || "image/jpeg";
-        contentParts.push({
-          inlineData: {
-            mimeType: mimeType,
-            data: pureBase64
-          }
-        });
-      }
     } else {
-      // 텍스트 모드
       const pastedText = textInputArea.value.trim();
-      contentParts.push({ text: `[쇼핑몰에서 복사한 상품 내역 텍스트]\n${pastedText}` });
+      extraText = `[쇼핑몰에서 복사한 상품 내역 텍스트]\n${pastedText}`;
     }
 
-    // 1. 초고속 모델 선택 (검증된 고속 모델로 즉시 직행)
-    const { lastFastGeminiModel } = await chrome.storage.local.get(["lastFastGeminiModel"]);
-    const fastCandidates = [
-      "gemini-2.5-flash-lite",
-      "gemini-2.0-flash",
-      "gemini-2.5-flash",
-      "gemini-2.0-flash-lite",
-      "gemini-3-flash-preview",
-      "gemini-3.8-flash",
-      "gemini-1.5-flash-latest"
-    ];
-
-    let candidateModels = [];
-    if (lastFastGeminiModel) {
-      candidateModels.push(lastFastGeminiModel);
-    }
-    for (const m of fastCandidates) {
-      if (!candidateModels.includes(m)) candidateModels.push(m);
-    }
-
-    const apiVer = "v1beta";
-    let res = null;
-    let lastErrMsg = "";
-    let succeededModel = "";
-
-    for (let i = 0; i < candidateModels.length; i++) {
-      const model = candidateModels[i];
-      statusMsg.textContent = `AI(${model}) 분석 중...`;
-
-      try {
-        const url = `https://generativelanguage.googleapis.com/${apiVer}/models/${model}:generateContent?key=${geminiApiKey}`;
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 12000);
-
-        const genConfig = {
-          temperature: 0.1,
-          responseMimeType: "application/json"
-        };
-        if (model.includes("2.5-flash")) {
-          genConfig.thinkingConfig = { thinkingBudget: 0 };
-        }
-
-        res = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: controller.signal,
-          body: JSON.stringify({
-            contents: [{ parts: contentParts }],
-            generationConfig: genConfig
-          })
-        });
-
-        clearTimeout(timeoutId);
-
-        if (res.ok) {
-          succeededModel = model;
-          chrome.storage.local.set({ lastFastGeminiModel: model });
-          break;
-        } else {
-          const errData = await res.json().catch(() => ({}));
-          const msg = errData.error?.message || "";
-          lastErrMsg = msg;
-          console.log(`[AI 모델 전환] ${model}:`, msg);
-
-          const match = msg.match(/use\s+models\/(gemini-[a-zA-Z0-9.-]+)/i);
-          if (match && match[1] && !candidateModels.includes(match[1])) {
-            candidateModels.splice(i + 1, 0, match[1]);
-          }
-        }
-      } catch (err) {
-        lastErrMsg = err.name === "AbortError" ? "모델 응답 지연으로 고속 백업 모델로 전환" : err.message;
-      }
-    }
-
-    if (!res || !res.ok) {
-      const check = await testApiKey(geminiApiKey);
-      if (check.success && check.models.length > 0) {
-        const extraModels = check.models.filter(m => m.includes("flash") && !m.includes("tts") && !m.includes("-image") && !candidateModels.includes(m));
-        for (const model of extraModels) {
-          statusMsg.textContent = `AI(${model}) 분석 중...`;
-          try {
-            const url = `https://generativelanguage.googleapis.com/${check.version || 'v1beta'}/models/${model}:generateContent?key=${geminiApiKey}`;
-            res = await fetch(url, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                contents: [{ parts: contentParts }],
-                generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
-              })
-            });
-            if (res.ok) {
-              chrome.storage.local.set({ lastFastGeminiModel: model });
-              break;
-            }
-          } catch (e) {}
-        }
-      }
-    }
-
-    if (!res || !res.ok) throw new Error(lastErrMsg || "AI 분석에 실패했습니다.");
+    const rawText = await callAiModel({
+      config: apiConfig,
+      promptText,
+      optimizedImages: optimizedList,
+      extraText,
+      statusEl: statusMsg
+    });
 
     statusMsg.textContent = "품의 기안문과 엑셀 내역을 생성하고 있습니다...";
-    const data = await res.json();
-    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!rawText) throw new Error("AI 응답 내용이 비어있습니다.");
 
     const parsed = extractJson(rawText);
     const newItems = parsed.items || [];
@@ -2888,7 +3107,7 @@ async function injectedFiller(title, body, items) {
         }
         const startRowIndex = existingFilledCount;
 
-        const liveBanner = createOrUpdateBanner(targetDoc, '🚀 [에듀파인 품의 도우미 v2.6.2] 품목 표 자동 행추가 및 셀 타이핑을 시작합니다...');
+        const liveBanner = createOrUpdateBanner(targetDoc, '🚀 [에듀파인 품의 도우미 v2.7.0] 품목 표 자동 행추가 및 셀 타이핑을 시작합니다...');
 
         for (let i = 0; i < items.length; i++) {
           const curItem = items[i];
@@ -3412,10 +3631,10 @@ if (multiBudgetSelect) {
 // 다중 예산 AI 분석 실행
 if (btnMultiAnalyze) {
   btnMultiAnalyze.addEventListener("click", async () => {
-    const { geminiApiKey } = await chrome.storage.local.get(["geminiApiKey"]);
-    if (!geminiApiKey) {
+    const apiConfig = await getActiveApiConfig();
+    if (!apiConfig.apiKey) {
       settingsModal.classList.add("active");
-      alert("Gemini API Key를 먼저 설정해주세요.");
+      alert(apiConfig.provider === "jbai" ? "전북AI API Key를 먼저 설정해주세요." : "Gemini API Key를 먼저 설정해주세요.");
       return;
     }
     const curImgs = getCurBudgetImages();
@@ -3463,65 +3682,13 @@ if (btnMultiAnalyze) {
 4. 단위(unit)는 공란 또는 "개"로 작성하세요.
 5. 수량과 단가는 쉼표 없이 정수 숫자로 작성하세요.
 `;
-      contentParts.push({ text: promptText });
+      const rawText = await callAiModel({
+        config: apiConfig,
+        promptText,
+        optimizedImages: optimizedList,
+        statusEl: multiStatusMsg
+      });
 
-      for (const opt of optimizedList) {
-        const pureBase64 = opt.split(",")[1];
-        const mimeType = opt.split(";")[0].split(":")[1] || "image/jpeg";
-        contentParts.push({
-          inlineData: {
-            mimeType: mimeType,
-            data: pureBase64
-          }
-        });
-      }
-
-      const { lastFastGeminiModel } = await chrome.storage.local.get(["lastFastGeminiModel"]);
-      const fastCandidates = [
-        "gemini-2.5-flash-lite",
-        "gemini-2.0-flash",
-        "gemini-2.5-flash",
-        "gemini-2.0-flash-lite",
-        "gemini-3-flash-preview",
-        "gemini-1.5-flash-latest"
-      ];
-      let candidateModels = [];
-      if (lastFastGeminiModel) candidateModels.push(lastFastGeminiModel);
-      for (const m of fastCandidates) {
-        if (!candidateModels.includes(m)) candidateModels.push(m);
-      }
-
-      let res = null;
-      let lastErrMsg = "";
-      for (const model of candidateModels) {
-        if (multiStatusMsg) multiStatusMsg.textContent = `AI(${model}) 분석 중...`;
-        try {
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`;
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 12000);
-          res = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            signal: controller.signal,
-            body: JSON.stringify({
-              contents: [{ parts: contentParts }],
-              generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
-            })
-          });
-          clearTimeout(timeoutId);
-          if (res.ok) {
-            chrome.storage.local.set({ lastFastGeminiModel: model });
-            break;
-          }
-        } catch (e) {
-          lastErrMsg = e.message;
-        }
-      }
-
-      if (!res || !res.ok) throw new Error(lastErrMsg || "AI 분석에 실패했습니다.");
-
-      const data = await res.json();
-      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
       const parsed = extractJson(rawText);
       const newItems = parsed.items || [];
       if (newItems.length === 0) throw new Error("상품을 감지하지 못했습니다.");
@@ -4072,7 +4239,7 @@ async function executeInjection({
       return;
     }
 
-    const currentVer = chrome.runtime.getManifest()?.version || "2.6.2";
+    const currentVer = chrome.runtime.getManifest()?.version || "2.7.0";
     let msg = `[에듀파인 화면 입력 완료! (v${currentVer})]\n\n`;
 
     if (injectDraft) {
@@ -4234,7 +4401,7 @@ async function checkForAppUpdates() {
   }
 
   try {
-    const curVer = chrome.runtime.getManifest()?.version || "2.6.2";
+    const curVer = chrome.runtime.getManifest()?.version || "2.7.0";
     const { lastUpdateCheckTime, latestRemoteVer, lastDismissedUpdateVer } = await chrome.storage.local.get([
       "lastUpdateCheckTime", "latestRemoteVer", "lastDismissedUpdateVer"
     ]);
